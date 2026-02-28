@@ -18,7 +18,7 @@ export default function DashboardLayout({
           <span className="font-semibold text-lg">InstaInventory</span>
         </div>
         <nav className="grid gap-2 items-start px-2 text-sm font-medium lg:px-4 py-4">
-          <MenuLink locale={locale} href="dashboard" label={t('dashboard')} />
+          <MenuLink locale={locale} href="" label={t('dashboard')} />
           <MenuLink locale={locale} href="products" label={t('products')} />
           <MenuLink locale={locale} href="orders" label={t('orders')} />
           <MenuLink locale={locale} href="customers" label={t('customers')} />
