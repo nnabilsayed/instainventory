@@ -1,0 +1,1311 @@
+InstaInventory – Complete Tech Guide & Deep Dive
+
+Status: Analysis only — no implementation.
+Stack: Next.js 14 (App Router) · TypeScript · Supabase · Tailwind CSS · shadcn/ui · Vercel
+
+
+
+
+1. Architecture Overview
+
+┌───────────────────────────────────────────────────────┐
+│                      Vercel Edge                      │
+│  Next.js 14 App Router (SSR + RSC + API Routes)      │
+│  ┌──────────────┐  ┌─────────────┐  ┌──────────────┐ │
+│  │ Dashboard    │  │ Public      │  │ API Routes   │ │
+│  │ (Seller)     │  │ Checkout    │  │ /api/*       │ │
+│  │ Protected    │  │ No auth     │  │              │ │
+│  └──────┬───────┘  └──────┬──────┘  └──────┬───────┘ │
+│         │                 │                │         │
+│         ▼                 ▼                ▼         │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │           Supabase Client (SSR + Client)         │ │
+│  └──────────────────────┬───────────────────────────┘ │
+└─────────────────────────┼─────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                     Supabase Cloud                       │
+│  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────┐ │
+│  │ Auth     │  │ Postgres │  │ Storage   │  │ Edge   │ │
+│  │ (email)  │  │ + RLS    │  │ (images)  │  │ Funcs  │ │
+│  └──────────┘  └──────────┘  └───────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────┘
+
+Why This Stack
+
+Choice Rationale
+Next.js 14 App Router Server Components reduce bundle size; built-in API routes eliminate a separate backend; great Vercel DX
+Supabase Postgres + Auth + Storage + RLS in one platform; generous free tier; real-time optional later
+Tailwind CSS User requested; pairs with shadcn/ui; easy RTL with dir="rtl" + logical properties
+shadcn/ui Copy-paste component library — no vendor lock-in; built on Radix (accessible); fully customisable
+Vercel Zero-config Next.js hosting; edge functions; preview deploys
+
+
+2. Complete File/Folder Structure
+
+instainventory/
+├── .env.local                          # Supabase URL, anon key, service role key (git-ignored)
+├── .env.example                        # Template for env vars (committed)
+├── next.config.js                      # Next.js config (next-intl plugin, images, PWA headers)
+├── tailwind.config.ts                  # Tailwind config (RTL plugin, shadcn theme, Arabic+English fonts)
+├── postcss.config.js                   # PostCSS with Tailwind + autoprefixer
+├── tsconfig.json                       # TypeScript config (strict, paths alias @/*)
+├── package.json                        # Dependencies & scripts
+├── middleware.ts                       # Auth + i18n: locale detection, auth redirect, route guards
+├── i18n.ts                             # next-intl config (supported locales, default locale)
+├── manifest.json                       # PWA manifest (name, icons, start_url, dir: rtl, lang: ar)
+│
+├── public/
+│   ├── icons/                          # PWA icons (192×192, 512×512)
+│   ├── favicon.ico
+│   └── sw.js                           # Service worker stub (cache-first for assets)
+│
+├── supabase/
+│   ├── migrations/
+│   │   └── 00001_initial_schema.sql    # Full DDL: tables, indexes, RLS, triggers, functions
+│   ├── seed.sql                        # Dev seed data (sample shop, products, orders)
+│   └── config.toml                     # Supabase CLI project config
+│
+├── messages/
+│   ├── ar.json                         # Arabic translations (all UI strings)
+│   └── en.json                         # English translations (all UI strings)
+│
+├── src/
+│   ├── app/
+│   │   ├── [locale]/                   # Dynamic locale segment (ar|en)
+│   │   │   ├── layout.tsx              # Locale-aware layout: dir, lang, font switching
+│   │   │   ├── globals.css             # Tailwind @layer base/components/utilities, CSS vars
+│   │   │   ├── not-found.tsx           # Custom 404 page (localized)
+│   │   │
+│   │   │   ├── (auth)/                 # Auth route group (no sidebar)
+│   │   │   │   ├── layout.tsx          # Centered card layout for auth pages
+│   │   │   │   ├── login/
+│   │   │   │   │   └── page.tsx        # Email/password login form
+│   │   │   │   ├── signup/
+│   │   │   │   │   └── page.tsx        # Registration form (shop name, WhatsApp, email, password)
+│   │   │   │   └── forgot-password/
+│   │   │   │       └── page.tsx        # Password reset request
+│   │   │
+│   │   │   ├── (dashboard)/            # Protected route group (sidebar + topbar)
+│   │   │   │   ├── layout.tsx          # Dashboard shell: sidebar nav, mobile hamburger, topbar
+│   │   │   │   ├── dashboard/
+│   │   │   │   │   └── page.tsx        # Home: today's orders, revenue, low-stock alerts
+│   │   │   │   ├── products/
+│   │   │   │   │   ├── page.tsx        # Product list with search, low-stock badge
+│   │   │   │   │   ├── new/
+│   │   │   │   │   │   └── page.tsx    # Add product form (name, price, variants, images)
+│   │   │   │   │   └── [id]/
+│   │   │   │   │       └── page.tsx    # Edit product + variant stock management
+│   │   │   │   ├── orders/
+│   │   │   │   │   ├── page.tsx        # Order list with status filter tabs
+│   │   │   │   │   ├── new/
+│   │   │   │   │   │   └── page.tsx    # Create order from DM (customer search/create, cart)
+│   │   │   │   │   └── [id]/
+│   │   │   │   │       └── page.tsx    # Order detail: status transitions, payment proof view
+│   │   │   │   ├── customers/
+│   │   │   │   │   └── page.tsx        # Customer list (name, phone, order count)
+│   │   │   │   └── settings/
+│   │   │   │       └── page.tsx        # Shop settings (name, logo, WhatsApp, InstaPay, language)
+│   │   │   │
+│   │   │   ├── checkout/
+│   │   │   │   └── [token]/
+│   │   │   │       └── page.tsx        # PUBLIC checkout (no auth): items, address form, COD/InstaPay
+│   │   │   │
+│   │   │   └── api/                    # API routes (outside [locale], no locale prefix)
+│   │       ├── checkout/
+│   │       │   └── [token]/
+│   │       │       └── route.ts        # GET: fetch order by token; POST: submit address + payment method
+│   │       ├── upload/
+│   │       │   └── route.ts            # POST: receive payment screenshot, store in Supabase Storage
+│   │       └── webhooks/
+│   │           └── route.ts            # Future: Supabase webhook receiver (reserved)
+│   │
+│   ├── components/
+│   │   ├── ui/                         # shadcn/ui components (button, input, card, dialog, etc.)
+│   │   │   ├── button.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── select.tsx
+│   │   │   ├── table.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── toast.tsx
+│   │   │   ├── dropdown-menu.tsx
+│   │   │   ├── label.tsx
+│   │   │   ├── textarea.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   └── sheet.tsx              # For mobile sidebar drawer
+│   │   │
+│   │   ├── layout/
+│   │   │   ├── sidebar.tsx             # Dashboard sidebar navigation
+│   │   │   ├── topbar.tsx              # Top bar (shop name, language switcher, logout)
+│   │   │   ├── mobile-nav.tsx          # Mobile hamburger → Sheet sidebar
+│   │   │   └── language-switcher.tsx   # AR/EN toggle button (switches locale)
+│   │   │
+│   │   ├── products/
+│   │   │   ├── product-form.tsx        # Reusable form for create/edit product
+│   │   │   ├── variant-table.tsx       # Inline editable variant rows (size, color, stock, price)
+│   │   │   └── image-upload.tsx        # Drag/drop + preview, uploads to Supabase Storage
+│   │   │
+│   │   ├── orders/
+│   │   │   ├── order-form.tsx          # Cart builder: search product → add variant → set qty
+│   │   │   ├── order-status-badge.tsx  # Color-coded status pill
+│   │   │   ├── customer-picker.tsx     # Search existing / create new inline
+│   │   │   └── payment-proof.tsx       # Display uploaded screenshot with zoom
+│   │   │
+│   │   ├── checkout/
+│   │   │   ├── checkout-form.tsx       # Address + payment method form (public)
+│   │   │   └── payment-upload.tsx      # InstaPay screenshot upload widget
+│   │   │
+│   │   └── shared/
+│   │       ├── logo.tsx                # Shop logo component
+│   │       ├── empty-state.tsx         # "No items yet" illustration
+│   │       ├── loading-spinner.tsx     # Consistent loader
+│   │       ├── confirm-dialog.tsx      # Generic "Are you sure?" dialog
+│   │       └── stats-card.tsx          # Dashboard metric card (icon, label, value)
+│   │
+│   ├── lib/
+│   │   ├── supabase/
+│   │   │   ├── client.ts              # Browser Supabase client (createBrowserClient)
+│   │   │   ├── server.ts              # Server Supabase client (createServerClient with cookies)
+│   │   │   ├── admin.ts               # Service-role client for admin ops (e.g., storage)
+│   │   │   └── middleware.ts           # Supabase auth helper for middleware.ts
+│   │   │
+│   │   ├── utils.ts                   # cn() helper (clsx + tailwind-merge), formatCurrency, etc.
+│   │   ├── constants.ts               # Order statuses, egyptian cities, shipping defaults
+│   │   ├── validators.ts              # zod schemas for all forms (product, order, checkout, auth)
+│   │   └── generate-token.ts          # Secure random token generator for checkout links
+│   │
+│   ├── hooks/
+│   │   ├── use-shop.ts                # Fetch + cache current seller's shop
+│   │   ├── use-products.ts            # Product list + search + pagination
+│   │   ├── use-orders.ts              # Order list + filters
+│   │   └── use-customers.ts           # Customer search hook
+│   │
+│   └── types/
+│       ├── database.ts                # Auto-generated Supabase types (npx supabase gen types)
+│       └── index.ts                   # App-level type aliases & enums
+│
+└── docs/
+    └── tech-guide.md                  # This document
+
+Key Conventions
+
+Convention Detail
+Path alias @/* maps to ./src/*
+Route groups (auth) and (dashboard) share different layouts, no URL impact
+Colocation Components grouped by feature (products/, orders/), not by type
+Server vs Client Pages default to Server Components; forms/interactivity use "use client"
+Validation All mutations validated with zod before DB call
+
+
+3. Supabase SQL Schema
+
+All tables live in the public schema. UUIDs for PKs. Timestamps with timezone.
+
+
+
+3.1 Extensions
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+3.2 Tables
+
+shops
+
+Stores each seller's shop. One shop per auth user (1-to-1).
+
+CREATE TABLE public.shops (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  slug          TEXT NOT NULL UNIQUE,               -- URL-friendly shop identifier
+  logo_url      TEXT,                                -- Supabase Storage URL
+  whatsapp      TEXT NOT NULL,                       -- e.g. "+201001234567"
+  instapay_name TEXT,                                -- InstaPay account holder name
+  instapay_number TEXT,                              -- InstaPay number (e.g. "01001234567")
+  currency      TEXT NOT NULL DEFAULT 'EGP',
+  default_shipping_fee  NUMERIC(10,2) NOT NULL DEFAULT 50.00,
+  order_counter INT NOT NULL DEFAULT 0,              -- Per-shop order number counter
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT shops_owner_unique UNIQUE (owner_id)    -- one shop per user
+);
+
+CREATE INDEX idx_shops_owner ON public.shops(owner_id);
+CREATE INDEX idx_shops_slug  ON public.shops(slug);
+
+products
+
+CREATE TABLE public.products (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id     UUID NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,                          -- Arabic product name
+  description TEXT,
+  price       NUMERIC(10,2) NOT NULL,                -- Base price in EGP
+  is_active   BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_products_shop    ON public.products(shop_id);
+CREATE INDEX idx_products_active  ON public.products(shop_id, is_active);
+
+product_images
+
+CREATE TABLE public.product_images (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id  UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  url         TEXT NOT NULL,                          -- Supabase Storage URL
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_product_images_product ON public.product_images(product_id);
+
+product_variants
+
+Each product can have variants (e.g. size M / color Black). Stock tracked at variant level.
+
+CREATE TABLE public.product_variants (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id  UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,                          -- e.g. "M - أسود"
+  size        TEXT,                                   -- e.g. "M", "L", "XL"
+  color       TEXT,                                   -- e.g. "أسود", "أبيض"
+  sku         TEXT,                                   -- optional internal SKU
+  price_override NUMERIC(10,2),                       -- NULL = use product.price
+  stock_qty   INT NOT NULL DEFAULT 0,
+  low_stock_threshold INT NOT NULL DEFAULT 3,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_variants_product   ON public.product_variants(product_id);
+CREATE INDEX idx_variants_low_stock ON public.product_variants(product_id)
+  WHERE stock_qty <= low_stock_threshold;
+
+customers
+
+CREATE TABLE public.customers (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id     UUID NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  phone       TEXT NOT NULL,                          -- primary identifier (WhatsApp)
+  instagram   TEXT,                                   -- IG handle
+  notes       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT customers_shop_phone_unique UNIQUE (shop_id, phone)
+);
+
+CREATE INDEX idx_customers_shop  ON public.customers(shop_id);
+CREATE INDEX idx_customers_phone ON public.customers(shop_id, phone);
+
+orders
+
+-- Order status enum
+CREATE TYPE order_status AS ENUM (
+  'draft',          -- Seller building cart (not yet sent)
+  'pending',        -- Checkout link sent, awaiting buyer
+  'confirmed',      -- Buyer submitted / seller confirmed → STOCK DEDUCTED
+  'shipped',        -- Handed to courier
+  'delivered',      -- Customer received
+  'cancelled'       -- Cancelled → stock restored
+);
+
+-- Payment method enum
+CREATE TYPE payment_method AS ENUM (
+  'cod',            -- Cash on delivery
+  'instapay'        -- InstaPay transfer (screenshot required)
+);
+
+CREATE TABLE public.orders (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id         UUID NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
+  customer_id     UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+  order_number    INT NOT NULL DEFAULT 0,             -- Per-shop number (#1, #2 per seller)
+  status          order_status NOT NULL DEFAULT 'draft',
+  checkout_token  TEXT NOT NULL UNIQUE,                -- random token for public URL
+  subtotal        NUMERIC(10,2) NOT NULL DEFAULT 0,
+  shipping_fee    NUMERIC(10,2) NOT NULL DEFAULT 0,
+  total           NUMERIC(10,2) NOT NULL DEFAULT 0,
+  payment_method  payment_method,
+  payment_proof_url TEXT,                             -- screenshot URL (Supabase Storage)
+  -- Buyer-submitted address
+  address_name    TEXT,                               -- recipient name
+  address_phone   TEXT,                               -- recipient phone
+  address_city    TEXT,                               -- e.g. "القاهرة"
+  address_area    TEXT,                               -- e.g. "مدينة نصر"
+  address_street  TEXT,                               -- full street/building
+  notes           TEXT,                               -- buyer or seller notes
+  pending_at      TIMESTAMPTZ,                        -- when checkout link generated
+  confirmed_at    TIMESTAMPTZ,
+  shipped_at      TIMESTAMPTZ,
+  delivered_at    TIMESTAMPTZ,
+  cancelled_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_orders_shop       ON public.orders(shop_id);
+CREATE INDEX idx_orders_status     ON public.orders(shop_id, status);
+CREATE INDEX idx_orders_customer   ON public.orders(customer_id);
+CREATE INDEX idx_orders_token      ON public.orders(checkout_token);
+CREATE INDEX idx_orders_created    ON public.orders(shop_id, created_at DESC);
+CREATE INDEX idx_orders_pending    ON public.orders(shop_id, status, pending_at)
+  WHERE status = 'pending';                           -- For stale pending order queries
+
+order_items
+
+CREATE TABLE public.order_items (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  order_id    UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  variant_id  UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE RESTRICT,
+  product_name TEXT NOT NULL,                        -- snapshot at order time
+  variant_name TEXT NOT NULL,                        -- snapshot at order time
+  unit_price  NUMERIC(10,2) NOT NULL,                -- snapshot at order time
+  quantity    INT NOT NULL DEFAULT 1,
+  line_total  NUMERIC(10,2) NOT NULL,                -- unit_price × quantity
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_order_items_order   ON public.order_items(order_id);
+CREATE INDEX idx_order_items_variant ON public.order_items(variant_id);
+
+3.3 Database Functions & Triggers
+
+Auto-update updated_at
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply to all relevant tables
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.shops
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.products
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.product_variants
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.customers
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+Per-Shop Order Number Generation
+
+-- Atomically increment shop counter and return next order number
+CREATE OR REPLACE FUNCTION public.next_order_number(p_shop_id UUID)
+RETURNS INT AS $$
+DECLARE
+  v_next INT;
+BEGIN
+  UPDATE public.shops
+  SET order_counter = order_counter + 1
+  WHERE id = p_shop_id
+  RETURNING order_counter INTO v_next;
+
+  RETURN v_next;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Auto-assign order_number on insert
+CREATE OR REPLACE FUNCTION public.assign_order_number()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.order_number = public.next_order_number(NEW.shop_id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_order_number
+  BEFORE INSERT ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.assign_order_number();
+
+Stock Deduction on Pending (Reservation) & Status Tracking
+
+-- ★ STOCK DEDUCTED ON 'pending' (when checkout link is generated)
+-- ★ STOCK RESTORED ON 'cancelled' (from pending or confirmed)
+CREATE OR REPLACE FUNCTION public.handle_order_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Deduct stock when order moves to 'pending' (checkout link sent)
+  IF OLD.status = 'draft' AND NEW.status = 'pending' THEN
+    NEW.pending_at = now();
+    UPDATE public.product_variants pv
+    SET stock_qty = stock_qty - oi.quantity
+    FROM public.order_items oi
+    WHERE oi.order_id = NEW.id
+      AND pv.id = oi.variant_id;
+  END IF;
+
+  -- Restore stock on cancellation (from pending or confirmed)
+  IF OLD.status IN ('pending', 'confirmed') AND NEW.status = 'cancelled' THEN
+    NEW.cancelled_at = now();
+    UPDATE public.product_variants pv
+    SET stock_qty = stock_qty + oi.quantity
+    FROM public.order_items oi
+    WHERE oi.order_id = NEW.id
+      AND pv.id = oi.variant_id;
+  END IF;
+
+  -- Track status timestamps
+  IF NEW.status = 'confirmed' AND OLD.status != 'confirmed' THEN
+    NEW.confirmed_at = now();
+  END IF;
+
+  IF NEW.status = 'shipped' AND OLD.status != 'shipped' THEN
+    NEW.shipped_at = now();
+  END IF;
+
+  IF NEW.status = 'delivered' AND OLD.status != 'delivered' THEN
+    NEW.delivered_at = now();
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_order_status_change
+  BEFORE UPDATE OF status ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_order_status_change();
+
+Recalculate Order Totals
+
+-- Recalculate subtotal/total after order_items change
+CREATE OR REPLACE FUNCTION public.recalculate_order_total()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_subtotal NUMERIC(10,2);
+  v_shipping NUMERIC(10,2);
+BEGIN
+  SELECT COALESCE(SUM(line_total), 0) INTO v_subtotal
+  FROM public.order_items
+  WHERE order_id = COALESCE(NEW.order_id, OLD.order_id);
+
+  SELECT shipping_fee INTO v_shipping
+  FROM public.orders
+  WHERE id = COALESCE(NEW.order_id, OLD.order_id);
+
+  UPDATE public.orders
+  SET subtotal = v_subtotal,
+      total = v_subtotal + v_shipping
+  WHERE id = COALESCE(NEW.order_id, OLD.order_id);
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER recalc_order_total_insert
+  AFTER INSERT ON public.order_items
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_order_total();
+
+CREATE TRIGGER recalc_order_total_update
+  AFTER UPDATE ON public.order_items
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_order_total();
+
+CREATE TRIGGER recalc_order_total_delete
+  AFTER DELETE ON public.order_items
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_order_total();
+
+3.4 Row Level Security (RLS)
+
+Principle: Every seller sees only their own shop data. Public checkout uses the checkout_token — no auth required.
+
+
+
+-- Enable RLS on all tables
+ALTER TABLE public.shops            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_images   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items      ENABLE ROW LEVEL SECURITY;
+
+Shops
+
+-- Sellers can only access their own shop
+CREATE POLICY "Sellers manage own shop"
+  ON public.shops FOR ALL
+  USING (owner_id = auth.uid())
+  WITH CHECK (owner_id = auth.uid());
+
+Products
+
+CREATE POLICY "Sellers manage own products"
+  ON public.products FOR ALL
+  USING (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()))
+  WITH CHECK (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()));
+
+-- Public: read active products for checkout display
+CREATE POLICY "Public can view active products"
+  ON public.products FOR SELECT
+  USING (is_active = true);
+
+Product Images
+
+CREATE POLICY "Sellers manage own product images"
+  ON public.product_images FOR ALL
+  USING (
+    product_id IN (
+      SELECT p.id FROM public.products p
+      JOIN public.shops s ON p.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    product_id IN (
+      SELECT p.id FROM public.products p
+      JOIN public.shops s ON p.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  );
+
+-- Public read for checkout
+CREATE POLICY "Public can view product images"
+  ON public.product_images FOR SELECT
+  USING (true);
+
+Product Variants
+
+CREATE POLICY "Sellers manage own variants"
+  ON public.product_variants FOR ALL
+  USING (
+    product_id IN (
+      SELECT p.id FROM public.products p
+      JOIN public.shops s ON p.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    product_id IN (
+      SELECT p.id FROM public.products p
+      JOIN public.shops s ON p.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  );
+
+-- Public read for checkout (stock check)
+CREATE POLICY "Public can view variants"
+  ON public.product_variants FOR SELECT
+  USING (true);
+
+Customers
+
+CREATE POLICY "Sellers manage own customers"
+  ON public.customers FOR ALL
+  USING (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()))
+  WITH CHECK (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()));
+
+Orders
+
+-- Sellers: full access to own orders
+CREATE POLICY "Sellers manage own orders"
+  ON public.orders FOR ALL
+  USING (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()))
+  WITH CHECK (shop_id IN (SELECT id FROM public.shops WHERE owner_id = auth.uid()));
+
+-- Public: read order by checkout_token (for checkout page)
+CREATE POLICY "Public can view order by token"
+  ON public.orders FOR SELECT
+  USING (checkout_token IS NOT NULL);
+
+-- Public: update order when submitting checkout (address, payment)
+CREATE POLICY "Public can submit checkout"
+  ON public.orders FOR UPDATE
+  USING (checkout_token IS NOT NULL AND status = 'pending')
+  WITH CHECK (status = 'pending');
+
+Order Items
+
+CREATE POLICY "Sellers manage own order items"
+  ON public.order_items FOR ALL
+  USING (
+    order_id IN (
+      SELECT o.id FROM public.orders o
+      JOIN public.shops s ON o.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    order_id IN (
+      SELECT o.id FROM public.orders o
+      JOIN public.shops s ON o.shop_id = s.id
+      WHERE s.owner_id = auth.uid()
+    )
+  );
+
+-- Public read for checkout display
+CREATE POLICY "Public can view order items by token"
+  ON public.order_items FOR SELECT
+  USING (
+    order_id IN (
+      SELECT id FROM public.orders WHERE checkout_token IS NOT NULL
+    )
+  );
+
+3.5 Storage Buckets
+
+-- Create storage buckets (run via Supabase Dashboard or CLI)
+
+-- 1. Product images (public read)
+-- Bucket: "product-images"
+-- Public: true (images served via public URL)
+-- Allowed MIME: image/jpeg, image/png, image/webp
+-- Max size: 5MB
+
+-- 2. Shop logos (public read)
+-- Bucket: "shop-logos"
+-- Public: true
+-- Allowed MIME: image/jpeg, image/png, image/webp, image/svg+xml
+-- Max size: 2MB
+
+-- 3. Payment proofs (private — seller only)
+-- Bucket: "payment-proofs"
+-- Public: false (only seller can view via signed URL)
+-- Allowed MIME: image/jpeg, image/png, image/webp
+-- Max size: 10MB
+
+Storage RLS policies (applied via Dashboard):
+
+-- product-images: sellers upload to their shop folder
+CREATE POLICY "Sellers upload product images"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'product-images' AND
+    (storage.foldername(name))[1] IN (
+      SELECT id::text FROM public.shops WHERE owner_id = auth.uid()
+    )
+  );
+
+-- payment-proofs: anonymous upload allowed (buyer submits from checkout)
+CREATE POLICY "Anyone can upload payment proof"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'payment-proofs');
+
+-- payment-proofs: only seller can read
+CREATE POLICY "Sellers view own payment proofs"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'payment-proofs' AND
+    (storage.foldername(name))[1] IN (
+      SELECT id::text FROM public.shops WHERE owner_id = auth.uid()
+    )
+  );
+
+
+4. Internationalization (i18n) & RTL Support
+
+V1 supports Arabic and English with a toggle switch. Arabic is the default language.
+
+
+
+4.1 i18n Strategy: next-intl
+
+Using next-intl for Next.js App Router. It provides:
+
+Server & Client Component support
+URL-based locale (/ar/dashboard, /en/dashboard)
+Type-safe message keys
+Automatic locale detection
+
+4.2 Locale-Aware Layout
+
+// src/app/[locale]/layout.tsx (conceptual)
+import { Cairo, Inter } from 'next/font/google';
+
+const cairo = Cairo({ subsets: ['arabic'] });   // Arabic font
+const inter = Inter({ subsets: ['latin'] });     // English font
+
+export default async function LocaleLayout({ children, params }) {
+  const { locale } = params;  // 'ar' or 'en'
+  const isRTL = locale === 'ar';
+
+  return (
+    <html lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
+      <body className={isRTL ? cairo.className : inter.className}>
+        {children}
+      </body>
+    </html>
+  );
+}
+
+4.3 Language Switcher
+
+A toggle button in the topbar that switches between Arabic and English:
+
+┌─────────────────────────────────────────────────┐
+│  InstaInventory    [AR | EN]    تسجيل خروج ◀  │
+└─────────────────────────────────────────────────┘
+
+Clicking toggles the locale: /ar/dashboard ↔ /en/dashboard
+Current locale is highlighted/active
+Persisted via URL (no cookie needed — URL is the source of truth)
+All page content, labels, buttons, statuses switch instantly
+
+4.4 Message Files
+
+// messages/ar.json
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "products": "المنتجات",
+    "orders": "الطلبات",
+    "customers": "العملاء",
+    "settings": "الإعدادات"
+  },
+  "products": {
+    "addProduct": "إضافة منتج",
+    "lowStock": "مخزون منخفض",
+    "name": "اسم المنتج",
+    "price": "السعر",
+    "variants": "المقاسات والألوان"
+  },
+  "orders": {
+    "newOrder": "طلب جديد",
+    "statuses": {
+      "draft": "مسودة",
+      "pending": "في الانتظار",
+      "confirmed": "مؤكد",
+      "shipped": "تم الشحن",
+      "delivered": "تم التسليم",
+      "cancelled": "ملغي"
+    }
+  },
+  "checkout": {
+    "cod": "الدفع عند الاستلام",
+    "instapay": "إنستاباي",
+    "uploadProof": "ارفع صورة التحويل"
+  }
+}
+
+// messages/en.json
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "orders": "Orders",
+    "customers": "Customers",
+    "settings": "Settings"
+  },
+  "products": {
+    "addProduct": "Add Product",
+    "lowStock": "Low Stock",
+    "name": "Product Name",
+    "price": "Price",
+    "variants": "Sizes & Colors"
+  },
+  "orders": {
+    "newOrder": "New Order",
+    "statuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    }
+  },
+  "checkout": {
+    "cod": "Cash on Delivery",
+    "instapay": "InstaPay",
+    "uploadProof": "Upload payment screenshot"
+  }
+}
+
+4.5 Usage in Components
+
+// In any component (conceptual)
+import { useTranslations } from 'next-intl';
+
+function Sidebar() {
+  const t = useTranslations('nav');
+  return (
+    <nav>
+      <Link href="/dashboard">{t('dashboard')}</Link>
+      <Link href="/products">{t('products')}</Link>
+      <Link href="/orders">{t('orders')}</Link>
+    </nav>
+  );
+}
+
+4.6 Tailwind CSS Configuration
+
+// tailwind.config.ts
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: ["./src/**/*.{ts,tsx}"],
+  theme: {
+    extend: {
+      fontFamily: {
+        cairo: ["Cairo", "sans-serif"],       // Arabic
+        inter: ["Inter", "sans-serif"],       // English
+      },
+    },
+  },
+  plugins: [
+    require("tailwindcss-rtl"),               // adds ps-, pe-, ms-, me- utilities
+  ],
+};
+
+4.7 RTL/LTR Rules
+
+Rule Implementation
+Direction Dynamic: dir="rtl" for Arabic, dir="ltr" for English
+Font Cairo for Arabic, Inter for English
+Logical properties only Use ps-4 (padding-start) not pl-4; ms-auto not ml-auto
+Icons Directional icons auto-flip with logical properties
+Sidebar Right side in Arabic (RTL), left side in English (LTR)
+Tables Text-aligned by locale; numbers always use ltr direction
+Form labels Above input, aligned to start (right in AR, left in EN)
+Toasts Appear from start side
+
+4.8 URL Structure
+
+Arabic:  /ar/dashboard    /ar/products    /ar/orders
+English: /en/dashboard    /en/products    /en/orders
+Public:  /ar/checkout/abc123  OR  /en/checkout/abc123
+
+Default locale: ar (Arabic)
+Middleware detects browser language on first visit, redirects to /ar or /en
+All internal links use the current locale automatically via next-intl's Link component
+
+
+5. Payment Flow Design
+
+5.1 Two Payment Methods
+
+Payment Method Selection (checkout page)
+├── COD (الدفع عند الاستلام)
+│   └── Just select → submit order → done
+│
+└── InstaPay (إنستاباي)
+    ├── Show seller's InstaPay details (from shop settings)
+    ├── Buyer transfers money externally in InstaPay app
+    ├── Buyer returns to checkout → uploads screenshot
+    └── Submit order with screenshot → seller reviews in dashboard
+
+5.2 Screenshot Upload Flow
+
+Buyer selects "InstaPay"
+    ↓
+UI shows: "Transfer to [shop InstaPay number]. Then upload screenshot below."
+    ↓
+Buyer taps upload → selects image from phone gallery
+    ↓
+Client-side: validate file (jpeg/png/webp, <10MB)
+    ↓
+POST /api/upload → Supabase Storage "payment-proofs/{shop_id}/{order_id}.jpg"
+    ↓
+Returns signed URL → stored in orders.payment_proof_url
+    ↓
+Seller sees screenshot thumbnail in order detail page
+    ↓
+Seller manually verifies → marks order "Confirmed"
+
+5.3 Key Design Decisions
+
+No auto-verification: Seller visually checks the screenshot and confirms manually
+Storage privacy: Payment proofs are in a private bucket — only the shop owner can view via signed URL
+No external gateway: Per spec — "No external payment integration for now"
+
+
+6. PWA Configuration
+
+6.1 Manifest
+
+// public/manifest.json
+{
+  "name": "InstaInventory",
+  "short_name": "InstaInventory",
+  "description": "إدارة المخزون والطلبات لمتجرك على إنستغرام",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+
+6.2 Service Worker
+
+Use next-pwa or @serwist/next for automatic SW generation. Minimal strategy for MVP:
+
+Cache-first: Static assets (JS, CSS, fonts, icons)
+Network-first: API calls and page data
+No offline mode in V1 (data always needs API)
+
+
+7. Auth Flow
+
+Signup → Supabase auth.signUp(email, password)
+    ↓
+Auto-create shop record via Supabase trigger or in signup page action
+    ↓
+Login → Supabase auth.signInWithPassword()
+    ↓
+middleware.ts checks session cookie → redirect to /login if missing
+    ↓
+All dashboard routes: getUser() from server client → fetch shop by owner_id
+
+Middleware Logic
+
+// middleware.ts (conceptual)
+// 1. Refresh Supabase session from cookies
+// 2. If user not authenticated:
+//    - /dashboard/* → redirect to /login
+//    - /checkout/*  → allow (public)
+//    - /login, /signup → allow
+// 3. If authenticated:
+//    - /login, /signup → redirect to /dashboard
+
+
+8. Environment Variables
+
+# .env.local (git-ignored)
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbG...             # Server-side only, never expose
+
+# App
+NEXT_PUBLIC_APP_URL=https://instainventory.app  # For generating checkout links
+
+
+9. Key npm Dependencies
+
+Package Purpose
+next 14.x Framework
+react 18.x UI library
+typescript Type safety
+@supabase/supabase-js Supabase client
+@supabase/ssr Server-side Supabase helpers (cookies, middleware)
+tailwindcss Styling
+tailwindcss-rtl RTL logical property utilities
+@radix-ui/* Accessible primitives (via shadcn/ui)
+class-variance-authority Component variant styling (shadcn dependency)
+clsx + tailwind-merge Class composition utility
+zod Schema validation
+next-intl i18n: locale routing, message files, useTranslations() hook
+lucide-react Icons
+next-pwa or @serwist/next PWA service worker
+date-fns Date formatting (order timestamps)
+nanoid Checkout token generation
+
+
+10. Checkout Token Security
+
+Token design:
+• Generated via nanoid(21) → URL-safe, 21 chars → ~124 bits of entropy
+• Stored in orders.checkout_token (UNIQUE index)
+• Public URL format: /checkout/{token}
+• Token is the ONLY way to access order data publicly
+• No rate limiting needed in V1 (brute force infeasible at 124 bits)
+
+
+11. Order State Machine
+
+                  ┌──────────┐
+                  │  draft   │  Seller building cart (no stock impact)
+                  └────┬─────┘
+                       │ Generate checkout link
+                       ▼
+                  ┌──────────┐
+         ┌───────│ pending  │  ★ STOCK DEDUCTED (reserved for buyer)
+         │       └────┬─────┘
+         │            │ Seller confirms (after buyer submits or InstaPay verified)
+         │            ▼
+         │       ┌──────────┐
+         │  ┌───│confirmed │  Order locked in
+         │  │   └────┬─────┘
+         │  │        │ Seller marks shipped
+         │  │        ▼
+         │  │   ┌──────────┐
+         │  │   │ shipped  │
+         │  │   └────┬─────┘
+         │  │        │ Seller marks delivered
+         │  │        ▼
+         │  │   ┌──────────┐
+         │  │   │delivered │  ✅ Complete
+         │  │   └──────────┘
+         │  │
+         │  │ (from pending OR confirmed)
+         ▼  ▼
+    ┌──────────┐
+    │cancelled │  ★ STOCK RESTORED
+    └──────────┘
+
+Dashboard hint: Orders in pending for >2 hours show a "⏰ في الانتظار منذ ساعتين" badge so the seller remembers to follow up or cancel stale orders to release stock.
+
+
+
+Allowed transitions:
+
+From To Who Stock Effect
+draft pending Seller (generates link) Deducted
+pending confirmed Seller (manual confirm) — (already deducted)
+confirmed shipped Seller —
+shipped delivered Seller —
+pending cancelled Seller (buyer ghosted) Restored
+confirmed cancelled Seller Restored
+
+
+12. Deployment Notes
+
+Vercel
+
+1. Connect GitHub repo to Vercel
+2. Set environment variables in Vercel dashboard
+3. Build command: next build (auto-detected)
+4. Output: .next (auto-detected)
+5. Region: fra1 (Frankfurt) — closest to Egypt
+
+Supabase
+
+1. Create project in Supabase dashboard
+2. Run migration: supabase db push (or paste SQL in SQL editor)
+3. Create storage buckets via dashboard
+4. Set up storage policies via dashboard
+5. Note: Enable email auth provider (default)
+
+
+13. Customer Auto-Creation from Checkout
+
+When a buyer submits the checkout form, the system automatically creates or updates a customer record:
+
+Buyer submits checkout → POST /api/checkout/[token]
+    ↓
+Extract: address_name, address_phone from submitted data
+    ↓
+Lookup customer by (shop_id, phone)
+    ↓
+├── EXISTS → update name if changed
+└── NOT FOUND → INSERT new customer (name, phone, shop_id)
+    ↓
+Link customer_id to order → order.customer_id = customer.id
+    ↓
+Seller sees customer in /customers list with order history
+
+Key rules:
+
+Phone number is the unique identifier per shop (UNIQUE(shop_id, phone))
+If phone already exists, we update the name but don't create a duplicate
+This happens server-side in the checkout API route using the service-role client
+
+
+14. Additional Considerations
+
+Items the spec didn't explicitly cover. Decisions noted for V1.
+
+
+
+14.1 Egyptian Governorates for Address Form
+
+The checkout address form needs a city dropdown with Egyptian governorates. Store as a static array in constants.ts:
+
+export const EGYPTIAN_GOVERNORATES = [
+  "القاهرة", "الجيزة", "الإسكندرية", "الدقهلية", "البحر الأحمر",
+  "البحيرة", "الفيوم", "الغربية", "الإسماعيلية", "المنوفية",
+  "المنيا", "القليوبية", "الوادي الجديد", "السويس", "أسوان",
+  "أسيوط", "بني سويف", "بورسعيد", "دمياط", "الشرقية",
+  "جنوب سيناء", "كفر الشيخ", "مطروح", "الأقصر", "قنا",
+  "شمال سيناء", "سوهاج",
+] as const;
+
+14.2 Shipping Fee
+
+V1: Flat shipping fee from shops.default_shipping_fee (default 50 EGP). Applied to every order.
+
+Post-MVP: Could add per-governorate shipping rates.
+
+14.3 Product Soft Delete
+
+Products are soft-deleted via is_active = false (not hard-deleted). This preserves order history — old orders still reference the product name/price via snapshots in order_items.
+
+Seller can toggle is_active to hide a product from future orders without losing data.
+
+14.4 Stale Pending Orders Dashboard Warning
+
+Orders stuck in pending for >2 hours show a visual badge:
+
+"⏰ في الانتظار منذ ٢ ساعة" (Pending for 2 hours)
+Calculated client-side: now() - pending_at > 2h
+Seller can follow up with the buyer or cancel to release stock
+
+14.5 Image Optimization
+
+Product images uploaded from phones can be large. V1 approach:
+
+Client-side: limit file size to 5MB at upload
+Use Next.js <Image> component for automatic resizing/optimization
+Supabase Storage serves images via CDN
+
+14.6 Variant Entry UX (Product Form)
+
+The product form must make it easy for sellers to define size × color combinations with individual stock counts. The variant-table.tsx component provides an inline-editable table:
+
+┌─ Add Product Form ─────────────────────────────────────────┐
+│  Name: فستان سواريه                                        │
+│  Price: 500 EGP                                            │
+│  Photos: [📷 upload]                                       │
+│                                                            │
+│  ┌─ Variants ──────────────────────────────────────────┐   │
+│  │  Size    │  Color   │  Stock  │  Price Override │ ✕  │   │
+│  ├──────────┼──────────┼─────────┼─────────────────┼────│   │
+│  │  L       │  أحمر    │  1      │  —              │ ✕  │   │
+│  │  M       │  أحمر    │  2      │  —              │ ✕  │   │
+│  │  M       │  أزرق    │  1      │  —              │ ✕  │   │
+│  │  S       │  أزرق    │  1      │  —              │ ✕  │   │
+│  ├──────────┴──────────┴─────────┴─────────────────┴────│   │
+│  │  [+ إضافة مقاس/لون]                                 │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  Total stock: 5 pieces                                     │
+│                                                            │
+│  [حفظ المنتج]                                              │
+└────────────────────────────────────────────────────────────┘
+
+Key rules:
+
+Each row = one product_variants record (unique size + color combo)
+Stock is per-variant, not per-product
+price_override is optional — if blank, uses the product's base price
+Variant name is auto-generated: "{size} - {color}" (e.g. "M - أحمر")
+Seller can add/remove rows dynamically
+Validation: at least 1 variant required; stock ≥ 0; no duplicate size+color combos
+
+
+15. Real-time Stock Updates (V1)
+
+Live stock visibility is critical to prevent overselling. Use Supabase Realtime to push stock changes to all open dashboard sessions instantly.
+
+15.1 How It Works
+
+Seller A confirms an order → stock trigger deducts qty
+    ↓
+Supabase Realtime broadcasts UPDATE on product_variants
+    ↓
+Seller A's dashboard updates instantly (live counter)
+Any other open tab/device also updates
+
+15.2 Supabase Realtime Channel
+
+// Conceptual — subscribe to variant stock changes for the seller's shop
+const channel = supabase
+  .channel('stock-updates')
+  .on(
+    'postgres_changes',
+    {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'product_variants',
+      filter: `product_id=in.(${productIds})`,  // only this shop's products
+    },
+    (payload) => {
+      // payload.new.stock_qty → update local state
+      // If stock_qty <= low_stock_threshold → show toast warning
+    }
+  )
+  .subscribe();
+
+15.3 Where Real-time Updates Appear
+
+Page What updates
+/dashboard Low-stock alerts counter, "stock holding" count
+/products Stock qty badge per product refreshes live
+/products/[id] Variant stock numbers update in real-time
+/orders/new Available stock shown when building cart
+
+15.4 Supabase Realtime Setup
+
+-- Enable Realtime on the product_variants table
+-- Run in Supabase Dashboard → Database → Replication
+-- Or via SQL:
+ALTER PUBLICATION supabase_realtime ADD TABLE public.product_variants;
+
+-- Also enable for orders (for live order feed on dashboard)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+
+Note: Supabase free tier includes Realtime. No additional cost for V1 scale.
+
+
+
+
+16. Future Considerations (Post-MVP)
+
+Not in V1 scope. Documented for awareness.
+
+
+
+Feature Notes
+WhatsApp API Auto-send checkout links via WhatsApp Business API
+Analytics Revenue charts, top products, customer insights
+Bulk import CSV upload for products
+Barcode/SKU Scan to find product
+Multi-user Shop staff accounts with roles
+Notifications Push notifications for new orders via PWA
+Per-city shipping Different fees for Cairo vs Upper Egypt etc.
+Auto-expire pending Background job to cancel orders pending >24h
+
+
+17. V1 Completeness Checklist
+
+Final review — everything needed for a shippable V1.
+
+
+
+Area Feature Status
+Auth Email/password signup + login ✅ Designed
+Auth Auto-create shop on signup ✅ Designed
+Auth Middleware route protection ✅ Designed
+Shop Name, logo, WhatsApp, InstaPay settings ✅ Designed
+Products CRUD with name, price, description, photos ✅ Designed
+Products Variants (size × color) with per-variant stock ✅ Designed
+Products Low-stock warnings ✅ Designed
+Products Soft delete (is_active) ✅ Designed
+Orders Create from DM (customer + cart builder) ✅ Designed
+Orders Generate checkout link (nanoid token) ✅ Designed
+Orders Per-shop order numbering (#1, #2, #3) ✅ Designed
+Orders Status transitions (draft → pending → confirmed → shipped → delivered) ✅ Designed
+Orders Cancel with stock restoration ✅ Designed
+Stock Deduct on pending (reservation) ✅ Designed
+Stock Restore on cancel ✅ Designed
+Stock Real-time updates via Supabase Realtime ✅ Designed
+Stock Stale pending order warnings (⏰) ✅ Designed
+Checkout Public page (no auth required) ✅ Designed
+Checkout Address form with Egyptian governorates ✅ Designed
+Checkout COD payment method ✅ Designed
+Checkout InstaPay with screenshot upload ✅ Designed
+Checkout Auto-create customer from submission ✅ Designed
+Customers List with phone, name, order count ✅ Designed
+Dashboard Today's orders, revenue, low-stock alerts ✅ Designed
+i18n Arabic + English with toggle switch ✅ Designed
+RTL Dynamic RTL/LTR based on locale ✅ Designed
+PWA Installable on mobile ✅ Designed
+Security RLS on all tables ✅ Designed
+Security Checkout token (124-bit entropy) ✅ Designed
+Storage Product images, shop logos, payment proofs ✅ Designed
+DB 7 tables, triggers, functions, indexes ✅ Designed
