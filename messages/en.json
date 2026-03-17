@@ -5,5 +5,17 @@
     "orders": "Orders",
     "customers": "Customers",
     "settings": "Settings"
+  },
+  "products": {
+    "title": "Products",
+    "name": "Name",
+    "addProduct": "Add Product",
+    "price": "Price",
+    "variants": "Variants",
+    "lowStock": "Low Stock"
+  },
+  "orders": {
+    "title": "Orders",
+    "newOrder": "New Order"
   }
 }

@@ -3,12 +3,14 @@ import ProductEditForm from './product-edit-form';
 import { notFound } from 'next/navigation';
 
 export default async function EditProductPage({
-  params
+  params,
 }: {
-  params: { id: string }
+  params: { id: string };
 }) {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return <div>Unauthorized</div>;
 
@@ -20,25 +22,73 @@ export default async function EditProductPage({
 
   if (!shop) return <div>Shop not found</div>;
 
-  // Fetch product and variants joining together
-  const { data: product, error } = await supabase
-    .from('products')
-    .select(`
-      *,
-      product_variants (*)
-    `)
-    .eq('id', params.id)
-    .eq('shop_id', shop.id)
-    .single();
+  const id = params.id;
+  const [productResult, adjustmentsResult, categoriesResult] = await Promise.all([
+    supabase
+      .from('products')
+      .select(`
+        *,
+        product_variants(*),
+        product_images(*)
+      `)
+      .eq('id', id)
+      .eq('shop_id', shop.id)
+      .single(),
+    supabase
+      .from('stock_adjustments')
+      .select(`
+        id,
+        adjustment,
+        reason,
+        stock_before,
+        stock_after,
+        created_at,
+        variant_id,
+        product_variants!inner(
+          id,
+          name,
+          size,
+          color,
+          products!inner(id)
+        )
+      `)
+      .eq('product_variants.products.id', id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('categories')
+      .select('id, name')
+      .eq('shop_id', shop.id)
+      .order('sort_order'),
+  ]);
 
-  if (error || !product) {
+  const product = productResult.data;
+  const adjustments = (adjustmentsResult.data ?? []).map((adjustment) => ({
+    id: adjustment.id,
+    adjustment: adjustment.adjustment,
+    reason: adjustment.reason,
+    stock_before: adjustment.stock_before,
+    stock_after: adjustment.stock_after,
+    created_at: adjustment.created_at,
+    variant_id: adjustment.variant_id,
+    product_variants: Array.isArray(adjustment.product_variants)
+      ? adjustment.product_variants[0]
+      : adjustment.product_variants,
+  }));
+
+  if (!product) {
     notFound();
   }
 
   return (
     <div className="max-w-2xl mx-auto w-full">
-      <h1 className="text-2xl font-bold mb-6">Edit Product: {product.name}</h1>
-      <ProductEditForm initialData={product} />
+      <h1 className="mb-6 text-xl font-semibold text-primary">Edit Product: {product.name}</h1>
+      <ProductEditForm
+        product={product}
+        adjustments={adjustments}
+        categories={categoriesResult.data ?? []}
+        shopId={shop.id}
+      />
     </div>
   );
 }

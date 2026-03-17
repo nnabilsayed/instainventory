@@ -5,5 +5,17 @@
     "orders": "الطلبات",
     "customers": "العملاء",
     "settings": "الإعدادات"
+  },
+  "products": {
+    "title": "المنتجات",
+    "name": "الاسم",
+    "addProduct": "إضافة منتج",
+    "price": "السعر",
+    "variants": "المتغيرات",
+    "lowStock": "مخزون منخفض"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "newOrder": "طلب جديد"
   }
 }

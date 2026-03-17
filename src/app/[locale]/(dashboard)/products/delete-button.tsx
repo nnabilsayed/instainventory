@@ -1,42 +1,57 @@
 'use client';
 
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { notify } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 
 export default function DeleteProductButton({ productId }: { productId: string }) {
-  const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
-    
-    setLoading(true);
+    setDeleting(true);
     const { error } = await supabase
       .from('products')
       .delete()
       .eq('id', productId);
 
     if (error) {
-      alert(error.message);
+      notify.error('Failed to delete product');
     } else {
+      notify.productDeleted();
       router.refresh();
+      setConfirmOpen(false);
     }
-    setLoading(false);
+    setDeleting(false);
   };
 
   return (
-    <Button 
-      variant="ghost" 
-      size="icon" 
-      onClick={handleDelete} 
-      disabled={loading}
-      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-    >
-      <Trash2 className="h-4 w-4" />
-    </Button>
+    <>
+      <button
+        type="button"
+        onClick={() => setConfirmOpen(true)}
+        className="min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] p-2 text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-bg)]"
+        aria-label="Delete product"
+      >
+        <Trash2 size={16} />
+      </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete product?"
+        message="This will permanently delete the product and all its variants. Any existing orders with this product will not be affected."
+        confirmLabel="Delete product"
+        cancelLabel="Keep it"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }

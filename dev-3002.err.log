@@ -1,0 +1,145 @@
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from C:\Users\mogo1\OneDrive\Desktop\InstaInventory\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+ ⨯ Error: Failed to call `useTranslations` because the context from `NextIntlClientProvider` was not found.
+
+This can happen because:
+1) You intended to render this component as a Server Component, the render
+   failed, and therefore React attempted to render the component on the client
+   instead. If this is the case, check the console for server errors.
+2) You intended to render this component on the client side, but no context was found.
+   Learn more about this error here: https://next-intl.dev/docs/environments/server-client-components#missing-context
+    at DashboardLayout (layout.tsx:62:74)
+digest: "399207423"
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+ ⨯ Error: Failed to call `useTranslations` because the context from `NextIntlClientProvider` was not found.
+
+This can happen because:
+1) You intended to render this component as a Server Component, the render
+   failed, and therefore React attempted to render the component on the client
+   instead. If this is the case, check the console for server errors.
+2) You intended to render this component on the client side, but no context was found.
+   Learn more about this error here: https://next-intl.dev/docs/environments/server-client-components#missing-context
+    at DashboardLayout (layout.tsx:62:74)
+digest: "399207423"
+ ⨯ Error: Failed to call `useTranslations` because the context from `NextIntlClientProvider` was not found.
+
+This can happen because:
+1) You intended to render this component as a Server Component, the render
+   failed, and therefore React attempted to render the component on the client
+   instead. If this is the case, check the console for server errors.
+2) You intended to render this component on the client side, but no context was found.
+   Learn more about this error here: https://next-intl.dev/docs/environments/server-client-components#missing-context
+    at DashboardLayout (layout.tsx:62:74)
+digest: "399207423"
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+The `locale` parameter in `getRequestConfig` is deprecated, please switch to `await requestLocale`. See https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+
+
+A `locale` is expected to be returned from `getRequestConfig`, but none was returned. This will be an error in the next major version of next-intl.
+
+See: https://next-intl.dev/blog/next-intl-3-22#await-request-locale
+

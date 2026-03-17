@@ -1,88 +1,156 @@
 'use client';
 
-import { useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { createClient } from '@/lib/supabase/client';
+import { notify } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { useState } from 'react';
 
-export default function OrderActions({
-  orderId, currentStatus, paymentMethod
-}: {
+interface OrderActionsProps {
   orderId: string;
-  currentStatus: string;
-  paymentMethod?: string;
-}) {
-  const [loading, setLoading] = useState(false);
+  status: string;
+}
+
+export default function OrderActions({ orderId, status }: OrderActionsProps) {
   const router = useRouter();
   const supabase = createClient();
+  const [loading, setLoading] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
-  const updateStatus = async (newStatus: string) => {
-    if (!confirm(`Are you sure you want to change status to ${newStatus}?`)) return;
+  async function updateStatus(newStatus: string) {
     setLoading(true);
-    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-    if (error) alert(error.message);
-    else router.refresh();
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+
+    if (error) {
+      notify.orderError();
+      setLoading(false);
+      return;
+    }
+
+    if (newStatus === 'confirmed') notify.orderConfirmed();
+    if (newStatus === 'shipped') notify.orderShipped();
+    if (newStatus === 'delivered') notify.orderDelivered();
+    if (newStatus === 'cancelled') notify.orderCancelled();
+
+    setConfirmCancelOpen(false);
     setLoading(false);
-  };
+    router.refresh();
+  }
 
-  return (
-    <div className="flex items-center gap-1 bg-background border rounded-md shadow-sm overflow-hidden text-sm font-medium">
-      {currentStatus === 'draft' && (
-        <>
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('pending')} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-none">
-            Send Link
-          </Button>
-          <Separator orientation="vertical" className="h-8" />
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('cancelled')} className="text-destructive hover:text-destructive hover:bg-red-50 rounded-none">
+  if (status === 'pending') {
+    return (
+      <>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => updateStatus('confirmed')}
+            disabled={loading}
+            className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
+          >
+            {loading ? 'Confirming...' : 'Confirm Order'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmCancelOpen(true)}
+            disabled={loading}
+            className="min-h-[48px] rounded-[var(--radius-md)] bg-[var(--danger-bg)] px-5 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-red-100"
+          >
             Cancel
-          </Button>
-        </>
-      )}
+          </button>
+        </div>
+        <ConfirmDialog
+          open={confirmCancelOpen}
+          title="Cancel this order?"
+          message="This will cancel the order and restore stock back to inventory. This cannot be undone."
+          confirmLabel="Yes, cancel order"
+          cancelLabel="Keep order"
+          variant="danger"
+          loading={loading}
+          onConfirm={() => updateStatus('cancelled')}
+          onCancel={() => setConfirmCancelOpen(false)}
+        />
+      </>
+    );
+  }
 
-      {currentStatus === 'pending' && (
-        <>
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('confirmed')} className="text-green-700 hover:text-green-800 hover:bg-green-50 rounded-none font-semibold">
-            {paymentMethod === 'instapay' ? 'Confirm Receipt' : 'Confirm Order'}
-          </Button>
-          <Separator orientation="vertical" className="h-8" />
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('cancelled')} className="text-destructive hover:text-destructive hover:bg-red-50 rounded-none">
-            Cancel Order
-          </Button>
-        </>
-      )}
-
-      {currentStatus === 'confirmed' && (
-        <>
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('shipped')} className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-none">
-            Mark Shipped
-          </Button>
-          <Separator orientation="vertical" className="h-8" />
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('cancelled')} className="text-destructive hover:text-destructive hover:bg-red-50 rounded-none">
+  if (status === 'confirmed') {
+    return (
+      <>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => updateStatus('shipped')}
+            disabled={loading}
+            className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
+          >
+            {loading ? 'Updating...' : 'Mark Shipped'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmCancelOpen(true)}
+            disabled={loading}
+            className="min-h-[48px] rounded-[var(--radius-md)] bg-[var(--danger-bg)] px-5 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-red-100"
+          >
             Cancel
-          </Button>
-        </>
-      )}
+          </button>
+        </div>
+        <ConfirmDialog
+          open={confirmCancelOpen}
+          title="Cancel this order?"
+          message="This will cancel the order and restore stock back to inventory. This cannot be undone."
+          confirmLabel="Yes, cancel order"
+          cancelLabel="Keep order"
+          variant="danger"
+          loading={loading}
+          onConfirm={() => updateStatus('cancelled')}
+          onCancel={() => setConfirmCancelOpen(false)}
+        />
+      </>
+    );
+  }
 
-      {currentStatus === 'shipped' && (
-        <>
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('delivered')} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-none">
-            Mark Delivered
-          </Button>
-          <Separator orientation="vertical" className="h-8" />
-          <Button variant="ghost" size="sm" disabled={loading} onClick={() => updateStatus('cancelled')} className="text-destructive hover:text-destructive hover:bg-red-50 rounded-none">
-            Returned/Cancel
-          </Button>
-        </>
-      )}
+  if (status === 'shipped') {
+    return (
+      <>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => updateStatus('delivered')}
+            disabled={loading}
+            className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
+          >
+            {loading ? 'Updating...' : 'Mark Delivered'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmCancelOpen(true)}
+            disabled={loading}
+            className="min-h-[48px] rounded-[var(--radius-md)] bg-[var(--danger-bg)] px-5 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-red-100"
+          >
+            Cancel
+          </button>
+        </div>
+        <ConfirmDialog
+          open={confirmCancelOpen}
+          title="Cancel this order?"
+          message="Stock will be restored to inventory. This cannot be undone."
+          confirmLabel="Yes, cancel order"
+          cancelLabel="Keep order"
+          variant="danger"
+          loading={loading}
+          onConfirm={() => updateStatus('cancelled')}
+          onCancel={() => setConfirmCancelOpen(false)}
+        />
+      </>
+    );
+  }
 
-      {currentStatus === 'cancelled' && (
-        <span className="px-4 py-2 text-muted-foreground bg-muted/50 cursor-default">Order Closed</span>
-      )}
+  if (status === 'draft') {
+    return null;
+  }
 
-      {currentStatus === 'delivered' && (
-        <span className="px-4 py-2 text-muted-foreground bg-muted/50 cursor-default">Order Complete ✓</span>
-      )}
-    </div>
-  );
+  return null;
 }

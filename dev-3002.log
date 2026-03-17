@@ -1,0 +1,96 @@
+  ▲ Next.js 14.2.3
+  - Local:        http://localhost:3002
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 635ms (103 modules)
+ ○ Compiling /[locale]/login ...
+ ✓ Compiled /[locale]/login in 5.4s (1442 modules)
+ ✓ Compiled in 352ms (701 modules)
+ HEAD /en/login 200 in 6228ms
+ ○ Compiling /[locale] ...
+ ✓ Compiled /[locale] in 2.1s (1898 modules)
+ ✓ Compiled /manifest.webmanifest in 443ms (1226 modules)
+ GET /manifest.webmanifest 200 in 567ms
+ GET /manifest.webmanifest 200 in 15ms
+ GET /en 500 in 4400ms
+ ✓ Compiled /[locale]/orders in 383ms (1947 modules)
+ HEAD /en/orders 500 in 1493ms
+ GET /en/orders 500 in 106ms
+ ✓ Compiled /[locale]/dashboard in 370ms (1949 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 792ms (1953 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 930ms
+ ✓ Compiled in 2.6s (2475 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 3.2s (2193 modules)
+ GET /en/dashboard 404 in 3678ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 92ms
+ HEAD /en/login 200 in 126ms
+ GET /en/logi 404 in 42ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 33ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 41ms
+ GET /manifest.webmanifest 200 in 34ms
+ GET /en/dashboard 200 in 836ms
+ ○ Compiling /[locale]/products ...
+ ✓ Compiled /[locale]/products in 631ms (2211 modules)
+ GET /_next/static/webpack/00efaa1585ccaab4.webpack.hot-update.json 404 in 108ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 26ms
+ GET /manifest.webmanifest 200 in 25ms
+ GET /en/dashboard 200 in 575ms
+ GET /manifest.webmanifest 200 in 13ms
+ GET /en/products?_rsc=107yi 200 in 367ms
+ ○ Compiling /[locale]/customers ...
+ ✓ Compiled /[locale]/customers in 581ms (2236 modules)
+ GET /manifest.webmanifest 200 in 22ms
+ ✓ Compiled /[locale]/customers/[id] in 463ms (2239 modules)
+ GET /manifest.webmanifest 200 in 18ms
+ GET /en/customers/8eaa14ce-7907-44e7-a405-fd4db091fb54?_rsc=1yosq 200 in 498ms
+ ✓ Compiled in 1742ms (2209 modules)
+ GET /en/customers/8eaa14ce-7907-44e7-a405-fd4db091fb54?_rsc=4eqg0 200 in 1190ms
+ ✓ Compiled /manifest.webmanifest in 280ms (1326 modules)
+ GET /manifest.webmanifest 200 in 360ms
+ GET /en/dashboard?_rsc=1c1p9 200 in 772ms
+ ○ Compiling /[locale]/products/[id] ...
+ ✓ Compiled /[locale]/products/[id] in 1483ms (2235 modules)
+ ✓ Compiled /manifest.webmanifest in 376ms (1349 modules)
+ GET /manifest.webmanifest 200 in 493ms
+ GET /en/products/3ff10dae-8d38-4878-b319-f4f4d20246eb?_rsc=1c6hc 200 in 988ms
+ ✓ Compiled in 1286ms (2282 modules)
+ GET /manifest.webmanifest 200 in 1185ms
+ GET /en/dashboard?_rsc=1a5rh 200 in 1044ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 616ms (2272 modules)
+ GET /manifest.webmanifest 200 in 37ms
+ GET /en/products/b055aa38-821c-415d-8b7a-0321187a9762 200 in 771ms
+ GET /en/dashboard 200 in 654ms
+ GET /manifest.webmanifest 200 in 26ms
+ GET /en/products?_rsc=107yi 200 in 701ms
+ GET /manifest.webmanifest 200 in 14ms
+ GET /en/dashboard?_rsc=1c1p9 200 in 553ms
+ ✓ Compiled in 770ms (933 modules)
+ GET /en/dashboard?_rsc=1a5rh 200 in 728ms
+ ○ Compiling /[locale]/orders ...
+ ✓ Compiled /[locale]/orders in 926ms (2266 modules)
+ ✓ Compiled /manifest.webmanifest in 248ms (1359 modules)
+ GET /manifest.webmanifest 200 in 319ms
+ GET /en/orders?_rsc=1mni5 200 in 710ms
+ GET /manifest.webmanifest 200 in 12ms
+ GET /en/products?_rsc=107yi 200 in 650ms
+ GET /manifest.webmanifest 200 in 16ms
+ ✓ Compiled in 3.8s (2255 modules)
+ GET /en/orders?_rsc=89ffg 200 in 1080ms
+ ✓ Compiled /[locale]/dashboard in 428ms (1328 modules)
+ ✓ Compiled /manifest.webmanifest in 285ms (1361 modules)
+ GET /manifest.webmanifest 200 in 368ms
+ GET /manifest.webmanifest 200 in 14ms
+ GET /manifest.webmanifest 200 in 13ms
+ ○ Compiling /[locale]/orders/new ...
+ ✓ Compiled /[locale]/orders/new in 760ms (2297 modules)
+ GET /manifest.webmanifest 200 in 26ms
+ ○ Compiling /[locale]/orders/[id] ...
+ ✓ Compiled /[locale]/orders/[id] in 604ms (2317 modules)
+ GET /manifest.webmanifest 200 in 17ms
+ GET /en/orders/73d32a5f-1086-4371-9b7b-fbafbe5b986b?_rsc=w5692 200 in 551ms

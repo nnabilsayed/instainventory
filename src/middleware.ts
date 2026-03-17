@@ -9,10 +9,29 @@ const handleI18nRouting = createMiddleware({
 });
 
 export async function middleware(request: NextRequest) {
-  // 2. Run i18n routing first to get the base response
   const response = handleI18nRouting(request);
+  const { pathname } = request.nextUrl;
+  const segments = pathname.split('/').filter(Boolean);
+  const locale = segments[0] === 'ar' || segments[0] === 'en' ? segments[0] : 'ar';
+  const pathWithoutLocale = `/${segments.slice(1).join('/')}`;
 
-  // 3. Create supabase client to handle auth context and refresh tokens
+  const isAuthPage = pathWithoutLocale === '/login' || pathWithoutLocale === '/signup';
+  const isDashboardPage =
+    pathWithoutLocale === '/dashboard' ||
+    pathWithoutLocale.startsWith('/products') ||
+    pathWithoutLocale.startsWith('/orders') ||
+    pathWithoutLocale.startsWith('/customers') ||
+    pathWithoutLocale.startsWith('/settings');
+  const isPublicPage =
+    pathWithoutLocale === '/' ||
+    pathWithoutLocale.startsWith('/store') ||
+    pathWithoutLocale.startsWith('/checkout') ||
+    isAuthPage;
+
+  if (isPublicPage && !isAuthPage) {
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -33,29 +52,17 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 4. Get active session
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage = request.nextUrl.pathname.includes('/login') || request.nextUrl.pathname.includes('/signup');
-  const isDashboardPage = request.nextUrl.pathname.includes('/dashboard') || 
-                          request.nextUrl.pathname.includes('/products') || 
-                          request.nextUrl.pathname.includes('/orders') || 
-                          request.nextUrl.pathname.includes('/customers') || 
-                          request.nextUrl.pathname.includes('/settings');
-
-  // 5. Redirect unauthenticated users from protected routes
   if (isDashboardPage && !user) {
-    const locale = request.nextUrl.pathname.split('/')[1] || 'ar';
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/${locale}/login`;
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 6. Redirect authenticated users away from auth pages
   if (isAuthPage && user) {
-    const locale = request.nextUrl.pathname.split('/')[1] || 'ar';
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/${locale}/dashboard`;
     return NextResponse.redirect(redirectUrl);

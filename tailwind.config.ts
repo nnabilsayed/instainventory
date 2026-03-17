@@ -1,3 +1,4 @@
+import plugin from "tailwindcss/plugin"
 import type { Config } from "tailwindcss"
 
 const config = {
@@ -23,44 +24,40 @@ const config = {
         inter: ["Inter", "sans-serif"],
       },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
+        background: "var(--background)",
+        surface: "var(--surface)",
+        "surface-hover": "var(--surface-hover)",
+        border: "var(--border)",
+        "border-strong": "var(--border-strong)",
+        primary: "var(--text-primary)",
+        secondary: "var(--text-secondary)",
+        tertiary: "var(--text-tertiary)",
+        inverse: "var(--text-inverse)",
+        navy: "var(--accent-navy)",
+        "navy-hover": "var(--accent-navy-hover)",
+        coral: "var(--accent-coral)",
+        "coral-hover": "var(--accent-coral-hover)",
+      },
+      spacing: {
+        "safe-bottom": "var(--safe-bottom)",
+        "bottom-nav": "var(--bottom-nav-height)",
+        "topbar": "var(--topbar-height)",
+      },
+      fontSize: {
+        "2xs": ["11px", "16px"],
+        xs: ["12px", "18px"],
+        sm: ["13px", "20px"],
+        base: ["14px", "22px"],
+        md: ["15px", "24px"],
+        lg: ["17px", "26px"],
+        xl: ["20px", "28px"],
+        "2xl": ["24px", "32px"],
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
       },
       keyframes: {
         "accordion-down": {
@@ -78,7 +75,21 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("tailwindcss-rtl")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("tailwindcss-rtl"),
+    plugin(function ({ addUtilities }) {
+      addUtilities({
+        ".scrollbar-hide": {
+          "-ms-overflow-style": "none",
+          "scrollbar-width": "none",
+        },
+        ".scrollbar-hide::-webkit-scrollbar": {
+          display: "none",
+        },
+      })
+    }),
+  ],
 } satisfies Config
 
 export default config
