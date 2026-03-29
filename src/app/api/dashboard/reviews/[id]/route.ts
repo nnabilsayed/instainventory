@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
+type ReviewRecord = {
+  id: string;
+  shop_id: string;
+};
+
 async function getAuthorizedReview(reviewId: string) {
   const supabase = createClient();
   const supabaseAdmin = getSupabaseAdmin();
@@ -27,7 +32,7 @@ async function getAuthorizedReview(reviewId: string) {
     .from('reviews')
     .select('id, shop_id')
     .eq('id', reviewId)
-    .maybeSingle();
+    .maybeSingle<ReviewRecord>();
 
   if (!review || review.shop_id !== shop.id) {
     return { error: NextResponse.json({ error: 'Review not found' }, { status: 404 }) };
