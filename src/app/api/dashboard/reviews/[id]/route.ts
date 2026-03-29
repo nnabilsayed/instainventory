@@ -56,9 +56,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ error: 'Invalid approval state' }, { status: 400 });
     }
 
+    const updatePayload = { is_approved: body.isApproved } as Record<string, boolean>;
+
     const { error } = await supabaseAdmin
       .from('reviews')
-      .update({ is_approved: body.isApproved })
+      .update(updatePayload as any)
       .eq('id', params.id)
       .eq('shop_id', authorization.shopId);
 
