@@ -331,8 +331,7 @@ export default function ProductEditForm({
     if (toUpdate.length > 0) {
       const results: any[] = [];
       for (const variant of toUpdate) {
-        const { id, product_id, ...fields } = variant;
-        void product_id;
+        const { id, ...fields } = variant;
         const { data, error: updateError } = await supabase
           .from('product_variants')
           .update(fields)
