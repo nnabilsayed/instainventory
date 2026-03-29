@@ -1,4 +1,5 @@
 import { StoreProductPageClient } from '@/components/store/store-product-page-client';
+import { getAppUrl } from '@/lib/app-url';
 import { storageImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/server';
 import { getThemeVariables } from '@/lib/theme-tokens';
@@ -130,7 +131,7 @@ export async function generateMetadata({
     const title = `${product.name} — ${shop.name}`;
     const description =
       product.description ?? `${product.name} — ${product.price} EGP. Order from ${shop.name}`;
-    const url = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://instainventory.com'}/store/${params.slug}/product/${params.id}`;
+    const url = `${getAppUrl()}/store/${params.slug}/product/${params.id}`;
 
     return {
       title,

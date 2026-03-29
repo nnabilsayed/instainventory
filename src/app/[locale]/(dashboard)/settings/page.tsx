@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FieldError } from '@/components/ui/field-error';
 import { Input } from '@/components/ui/input';
 import { OnlineStoreSection } from '@/components/settings/online-store-section';
+import { getAppHost, getAppUrl } from '@/lib/app-url';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { normalizeEgyptianPhone } from '@/lib/phone';
@@ -24,7 +25,8 @@ export default function SettingsPage() {
   const locale = useLocale();
   const router = useRouter();
   const supabase = createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://instainventory.com';
+  const appUrl = getAppUrl();
+  const appHost = getAppHost();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -249,7 +251,7 @@ export default function SettingsPage() {
             />
             <FieldError message={errors.slug} />
             <p className="mt-1 text-xs text-tertiary">
-              Your unique store address: instainventory.com/store/<strong>{slug || 'your-store'}</strong> - changing this
+              Your unique store address: {appHost}/store/<strong>{slug || 'your-store'}</strong> - changing this
               breaks all existing checkout links.
             </p>
             <div className="mt-2 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-2">

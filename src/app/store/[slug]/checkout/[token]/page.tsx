@@ -1,8 +1,9 @@
 import CheckoutPage from '@/components/checkout/checkout-page';
+import { getAppUrl } from '@/lib/app-url';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://instainventory.com';
+const APP_URL = getAppUrl();
 
 export async function generateMetadata({
   params,

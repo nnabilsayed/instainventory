@@ -1,3 +1,4 @@
+import { getAppUrl } from './app-url';
 import { formatPhoneForWhatsApp } from './phone';
 
 export function buildWhatsAppUrl(phone: string, message: string): string {
@@ -32,16 +33,17 @@ export function getOrderMessage(
     checkoutLink,
     total,
   } = params;
+  const appUrl = getAppUrl();
 
   const resolvedTrackingUrl =
     trackingUrl ||
     (shopSlug && checkoutToken
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/store/${shopSlug}/order/${checkoutToken}`
+      ? `${appUrl}/store/${shopSlug}/order/${checkoutToken}`
       : undefined);
 
   const reviewUrl =
     shopSlug && orderId
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/store/${shopSlug}/review/${orderId}`
+      ? `${appUrl}/store/${shopSlug}/review/${orderId}`
       : undefined;
 
   switch (type) {

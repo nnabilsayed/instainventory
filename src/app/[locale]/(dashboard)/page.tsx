@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server';
+import { getAppUrl } from '@/lib/app-url';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,7 @@ export const revalidate = 0;
 export default async function DashboardPage({ params: { locale } }: { params: { locale: string } }) {
   const t = await getTranslations('nav');
   const supabase = createClient();
+  const appUrl = getAppUrl();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <div>Unauthorized</div>;
@@ -101,7 +103,7 @@ export default async function DashboardPage({ params: { locale } }: { params: { 
             Your store is live
           </p>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            {process.env.NEXT_PUBLIC_APP_URL}/store/{shop.slug}
+            {appUrl}/store/{shop.slug}
           </p>
         </div>
       )}

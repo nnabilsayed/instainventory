@@ -1,4 +1,5 @@
 import { storageImage } from '@/lib/image';
+import { getAppUrl } from '@/lib/app-url';
 import { createClient } from '@/lib/supabase/server';
 import { getThemeVariables } from '@/lib/theme-tokens';
 import { ReviewsSection } from '@/components/store/reviews-section';
@@ -66,7 +67,7 @@ type ReviewRecord = {
   created_at: string;
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://instainventory.com';
+const APP_URL = getAppUrl();
 const MARKETING_SITE_URL = APP_URL;
 
 async function getStoreData(params: { slug: string }) {

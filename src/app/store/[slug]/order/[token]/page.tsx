@@ -1,4 +1,5 @@
 import { StatusBadge, type OrderStatus } from '@/components/ui/status-badge';
+import { getAppUrl } from '@/lib/app-url';
 import { storageImage } from '@/lib/image';
 import { formatPhoneForWhatsApp } from '@/lib/phone';
 import { createClient } from '@/lib/supabase/server';
@@ -58,7 +59,7 @@ const STEP_LABELS: Record<(typeof STEPS)[number], string> = {
   shipped: 'Shipped',
   delivered: 'Delivered',
 };
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://instainventory.com';
+const APP_URL = getAppUrl();
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
