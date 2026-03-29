@@ -27,8 +27,6 @@ export default function SettingsPage() {
   const supabase = createClient();
   const appUrl = getAppUrl();
   const appHost = getAppHost();
-  const storeUrl = `${appUrl}/store/${slug || 'your-store'}`;
-  const storeHostPath = `${appHost}/store/${slug || 'your-store'}`;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,6 +48,8 @@ export default function SettingsPage() {
   const [selfCheckoutEnabled, setSelfCheckoutEnabled] = useState(false);
   const [autoWhatsappNotifications, setAutoWhatsappNotifications] = useState(true);
   const [savingAutoWhatsapp, setSavingAutoWhatsapp] = useState(false);
+  const storeUrl = `${appUrl}/store/${slug || 'your-store'}`;
+  const storeHostPath = `${appHost}/store/${slug || 'your-store'}`;
 
   function validateSlug(value: string): string | null {
     if (!value) return 'Store URL is required';
