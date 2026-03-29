@@ -20,7 +20,7 @@
      Headers: x-webhook-secret: [WEBHOOK_SECRET], x-event-type: low_stock
 */
 
-import { resend } from '@/lib/resend';
+import { getResend } from '@/lib/resend';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
@@ -298,6 +298,7 @@ async function sendSellerEmail({
   subject: string;
   html: string;
 }) {
+  const resend = getResend();
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
     to,
