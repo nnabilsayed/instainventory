@@ -113,15 +113,15 @@ export function ProductDetailClient({
   };
 
   const sizeOptions = useMemo(
-    () => [...new Set(variants.map((variant) => variant.size).filter((value): value is string => Boolean(value)))],
+    () => Array.from(new Set(variants.map((variant) => variant.size).filter((value): value is string => Boolean(value)))),
     [variants],
   );
   const colorOptions = useMemo(
-    () => [...new Set(variants.map((variant) => variant.color).filter((value): value is string => Boolean(value)))],
+    () => Array.from(new Set(variants.map((variant) => variant.color).filter((value): value is string => Boolean(value)))),
     [variants],
   );
   const nameOptions = useMemo(
-    () => [...new Set(variants.map((variant) => variant.name).filter((value): value is string => Boolean(value)))],
+    () => Array.from(new Set(variants.map((variant) => variant.name).filter((value): value is string => Boolean(value)))),
     [variants],
   );
 
