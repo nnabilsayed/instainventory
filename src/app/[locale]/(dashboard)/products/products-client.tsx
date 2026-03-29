@@ -481,7 +481,7 @@ function ProductCard({
                 color: variant.color,
                 stock_qty: variant.stock_qty,
                 image_url: variant.image_url ?? null,
-                price: variant.price_override ?? product.price ?? null,
+                price: variant.price ?? product.price ?? null,
               }))}
             />
             <select
