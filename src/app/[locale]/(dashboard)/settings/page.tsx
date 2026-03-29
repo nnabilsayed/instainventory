@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const supabase = createClient();
   const appUrl = getAppUrl();
   const appHost = getAppHost();
+  const storeUrl = `${appUrl}/store/${slug || 'your-store'}`;
+  const storeHostPath = `${appHost}/store/${slug || 'your-store'}`;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -251,12 +253,12 @@ export default function SettingsPage() {
             />
             <FieldError message={errors.slug} />
             <p className="mt-1 text-xs text-tertiary">
-              Your unique store address: {appHost}/store/<strong>{slug || 'your-store'}</strong> - changing this
+              Your unique store address: <strong>{storeHostPath}</strong> - changing this
               breaks all existing checkout links.
             </p>
             <div className="mt-2 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-2">
               <span className="truncate text-xs text-tertiary">
-                {appUrl}/store/<strong className="text-primary">{slug || 'your-store'}</strong>
+                <strong className="text-primary">{storeUrl}</strong>
               </span>
             </div>
             {slugChanged ? (

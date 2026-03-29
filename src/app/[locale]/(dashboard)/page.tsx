@@ -23,6 +23,7 @@ export default async function DashboardPage({ params: { locale } }: { params: { 
     .eq('owner_id', user.id)
     .single();
   if (!shop) return <div>Shop not found</div>;
+  const storeUrl = `${appUrl}/store/${shop.slug}`;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -103,8 +104,13 @@ export default async function DashboardPage({ params: { locale } }: { params: { 
             Your store is live
           </p>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            {appUrl}/store/{shop.slug}
+            {storeUrl}
           </p>
+          <Button asChild size="sm">
+            <Link href={storeUrl} target="_blank" rel="noopener noreferrer">
+              Go to Catalogue
+            </Link>
+          </Button>
         </div>
       )}
 

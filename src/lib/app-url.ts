@@ -1,5 +1,10 @@
 function normalizeUrl(value: string) {
-  return value.replace(/\/$/, '');
+  const trimmed = value.trim().replace(/\/$/, '');
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
 }
 
 export function getAppUrl() {
@@ -22,5 +27,9 @@ export function getAppUrl() {
 }
 
 export function getAppHost() {
-  return new URL(getAppUrl()).host;
+  try {
+    return new URL(getAppUrl()).host;
+  } catch {
+    return getAppUrl().replace(/^https?:\/\//i, '');
+  }
 }
