@@ -90,6 +90,15 @@ function formatMoney(value: number | string) {
   return `${value} EGP`;
 }
 
+type OrderItem = {
+  id: string;
+  product_name: string;
+  variant_name: string | null;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+};
+
 function CountdownBar({
   expiresAt,
   onExpire,
@@ -156,7 +165,7 @@ function CountdownBar({
   );
 }
 
-function OrderSummaryCard({ order, orderItems }: { order: any; orderItems: any[] }) {
+function OrderSummaryCard({ order, orderItems }: { order: any; orderItems: OrderItem[] }) {
   return (
     <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
       <SectionTitle>Order summary</SectionTitle>
@@ -294,7 +303,7 @@ export default function CheckoutFormClient({
   const [proofError, setProofError] = useState('');
   const [proofPreview, setProofPreview] = useState('');
 
-  const orderItems = useMemo(() => order.order_items ?? [], [order.order_items]);
+  const orderItems = useMemo<OrderItem[]>(() => order.order_items ?? [], [order.order_items]);
 
   const expireOrder = useCallback(async () => {
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id).eq('status', 'draft');
