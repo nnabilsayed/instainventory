@@ -280,7 +280,7 @@ export function OrdersClient({
       clearTimeout(copiedOrderTimeoutRef.current);
     }
 
-    copiedOrderTimeoutRef.current = window.setTimeout(() => {
+    copiedOrderTimeoutRef.current = setTimeout(() => {
       setCopiedOrderId((current) => (current === order.id ? null : current));
     }, 2000);
   }
