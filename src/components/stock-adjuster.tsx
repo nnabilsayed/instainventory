@@ -10,6 +10,8 @@ interface StockAdjusterProps {
   variantId: string;
   shopId: string;
   initialStock: number;
+  imageUrl?: string | null;
+  price?: number | null;
   variantLabel: string;
   onStockChange?: (newStock: number) => void;
   compact?: boolean;
@@ -19,10 +21,14 @@ export function StockAdjuster({
   variantId,
   shopId,
   initialStock,
+  imageUrl,
+  price,
   variantLabel,
   onStockChange,
   compact = false,
 }: StockAdjusterProps) {
+  void imageUrl;
+  void price;
   const router = useRouter();
   const [stock, setStock] = useState(initialStock);
   const [loading, setLoading] = useState(false);
