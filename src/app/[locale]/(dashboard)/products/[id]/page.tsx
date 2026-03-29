@@ -23,17 +23,21 @@ export default async function EditProductPage({
   if (!shop) return <div>Shop not found</div>;
 
   const id = params.id;
-  const [productResult, adjustmentsResult, categoriesResult] = await Promise.all([
+  const [productResult, variantsResult, imagesResult, adjustmentsResult, categoriesResult] = await Promise.all([
     supabase
       .from('products')
-      .select(`
-        *,
-        product_variants(*),
-        product_images(*)
-      `)
+      .select('*')
       .eq('id', id)
       .eq('shop_id', shop.id)
       .single(),
+    supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', id),
+    supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', id),
     supabase
       .from('stock_adjustments')
       .select(`
@@ -62,7 +66,29 @@ export default async function EditProductPage({
       .order('sort_order'),
   ]);
 
-  const product = productResult.data;
+  if (
+    productResult.error ||
+    variantsResult.error ||
+    imagesResult.error ||
+    adjustmentsResult.error ||
+    categoriesResult.error
+  ) {
+    throw (
+      productResult.error ??
+      variantsResult.error ??
+      imagesResult.error ??
+      adjustmentsResult.error ??
+      categoriesResult.error
+    );
+  }
+
+  const product = productResult.data
+    ? {
+        ...productResult.data,
+        product_variants: variantsResult.data ?? [],
+        product_images: imagesResult.data ?? [],
+      }
+    : null;
   const adjustments = (adjustmentsResult.data ?? []).map((adjustment) => ({
     id: adjustment.id,
     adjustment: adjustment.adjustment,

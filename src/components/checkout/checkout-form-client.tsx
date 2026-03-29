@@ -1,23 +1,13 @@
 'use client';
 
 import { CheckoutCountdown } from '@/components/checkout/checkout-countdown';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
+import { storageImage } from '@/lib/image';
+import { formatPhoneForWhatsApp } from '@/lib/phone';
 import { formatFileSize, validatePaymentProof } from '@/lib/validate-upload';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { isOrderExpired } from '@/lib/order-expiry';
-import {
-  Check,
-  ChevronDown,
-  Clock3,
-  Lock,
-  MessageCircle,
-  ShoppingBag,
-  Smartphone,
-  Tag,
-  Wallet,
-} from 'lucide-react';
+import { CheckCircle2, Clock3, Lock, MessageCircle, Package, Smartphone, Tag, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 function CheckoutHeader({ shop, orderNumber }: { shop: any; orderNumber: string | number }) {
@@ -26,8 +16,10 @@ function CheckoutHeader({ shop, orderNumber }: { shop: any; orderNumber: string 
       {shop?.logo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={shop.logo_url}
+          src={storageImage(shop.logo_url, { width: 80, height: 80 }) ?? shop.logo_url}
           alt={shop?.name}
+          width={80}
+          height={80}
           className="h-10 w-10 flex-shrink-0 rounded-[var(--radius-md)] object-cover"
         />
       ) : (
@@ -49,6 +41,55 @@ function CheckoutHeader({ shop, orderNumber }: { shop: any; orderNumber: string 
   );
 }
 
+function CheckoutHeaderCard({
+  shop,
+  subtitle,
+}: {
+  shop: any;
+  subtitle: string;
+}) {
+  return (
+    <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="flex items-center gap-3">
+        {shop?.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={storageImage(shop.logo_url, { width: 80, height: 80, resize: 'cover' }) ?? shop.logo_url}
+            alt={shop?.name}
+            className="h-10 w-10 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-navy)] text-[15px] font-medium text-white">
+            {shop?.name?.charAt(0)?.toUpperCase() || 'S'}
+          </div>
+        )}
+
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-medium text-[var(--text-primary)]">{shop?.name}</p>
+          <p className="text-xs text-[var(--text-secondary)]">{subtitle}</p>
+        </div>
+
+        <div className="ms-auto flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+          <Lock size={14} />
+          <span>Secure</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-3 text-[11px] font-medium uppercase tracking-[.06em] text-[var(--text-secondary)]">
+      {children}
+    </p>
+  );
+}
+
+function formatMoney(value: number | string) {
+  return `${value} EGP`;
+}
+
 function CountdownBar({
   expiresAt,
   onExpire,
@@ -65,6 +106,11 @@ function CountdownBar({
     }
 
     function updateRemaining() {
+      if (!expiresAt) {
+        setRemainingMs(null);
+        return;
+      }
+
       setRemainingMs(Math.max(0, new Date(expiresAt).getTime() - Date.now()));
     }
 
@@ -81,62 +127,65 @@ function CountdownBar({
   const isUrgent = remainingMs < 10 * 60 * 1000;
 
   return (
-    <div
+    <section
       className={cn(
-        'flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5 text-sm font-medium md:rounded-[var(--radius-lg)] md:border',
+        'rounded-[var(--radius-lg)] border p-4',
         isUrgent
-          ? 'bg-[var(--danger-bg)] text-[var(--danger-text)]'
-          : 'bg-[var(--warning-bg)] text-[var(--warning-text)]',
+          ? 'border-[var(--danger-text)] bg-[var(--danger-bg)] text-[var(--danger-text)]'
+          : 'border-[var(--warning-text)] bg-[var(--warning-bg)] text-[var(--warning-text)]',
       )}
     >
-      <span className="flex items-center gap-1.5">
-        <Clock3 size={14} />
-        <span>This link expires in</span>
-      </span>
+      <div className="flex items-center justify-between gap-3 text-sm font-medium">
+        <span className="flex items-center gap-1.5">
+          <Clock3 size={14} />
+          <span>This link expires in</span>
+        </span>
 
-      <div
-        className={cn(
-          'shrink-0',
-          '[&>div]:border-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:py-0 [&>div]:text-inherit',
-          '[&>div]:justify-end [&>div]:rounded-none [&>div>span:first-child]:hidden',
-          '[&>div>span:last-child]:text-base [&>div>span:last-child]:font-bold',
-        )}
-      >
-        <CheckoutCountdown expiresAt={expiresAt} onExpire={onExpire} />
+        <div
+          className={cn(
+            'shrink-0',
+            '[&>div]:border-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:py-0 [&>div]:text-inherit',
+            '[&>div]:justify-end [&>div]:rounded-none [&>div>span:first-child]:hidden',
+            '[&>div>span:last-child]:text-base [&>div>span:last-child]:font-bold',
+          )}
+        >
+          <CheckoutCountdown expiresAt={expiresAt} onExpire={onExpire} />
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-function OrderSummaryContent({ order, orderItems }: { order: any; orderItems: any[] }) {
+function OrderSummaryCard({ order, orderItems }: { order: any; orderItems: any[] }) {
   return (
-    <div className="space-y-4 p-4">
-      <div className="space-y-2">
+    <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <SectionTitle>Order summary</SectionTitle>
+
+      <div>
         {orderItems.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-start justify-between gap-3 rounded-[var(--radius-md)] bg-[var(--surface-hover)] p-3"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-primary">{item.product_name}</p>
-              <p className="mt-0.5 text-xs text-secondary">{item.variant_name}</p>
-              <p className="mt-0.5 text-xs text-tertiary">
-                Qty {item.quantity} x {item.unit_price} EGP
-              </p>
+          <div key={item.id} className="mb-2 rounded-[var(--radius-md)] bg-[var(--background)] p-3 last:mb-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{item.product_name}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{item.variant_name}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                  {item.quantity} × {item.unit_price} EGP
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-medium text-[var(--text-primary)]">{item.line_total} EGP</p>
             </div>
-            <p className="flex-shrink-0 text-sm font-semibold text-primary">{item.line_total} EGP</p>
           </div>
         ))}
       </div>
 
-      <div className="space-y-1.5 border-t border-[var(--border)] pt-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-secondary">Subtotal</span>
-          <span>{order.subtotal} EGP</span>
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
+          <span>Subtotal</span>
+          <span>{formatMoney(order.subtotal)}</span>
         </div>
 
         {Number(order.discount_amount) > 0 ? (
-          <div className="flex justify-between text-sm">
+          <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-1 text-[var(--success-text)]">
               <Tag size={11} />
               <span>
@@ -150,17 +199,19 @@ function OrderSummaryContent({ order, orderItems }: { order: any; orderItems: an
           </div>
         ) : null}
 
-        <div className="flex justify-between text-sm">
-          <span className="text-secondary">Shipping</span>
-          <span>{order.shipping_fee} EGP</span>
+        <div className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
+          <span>Shipping</span>
+          <span>{formatMoney(order.shipping_fee)}</span>
         </div>
 
-        <div className="flex justify-between border-t border-[var(--border)] pt-2">
-          <span className="font-bold text-primary">Total</span>
-          <span className="text-lg font-bold text-primary">{order.total} EGP</span>
+        <div className="my-2 border-t border-[var(--border)]" />
+
+        <div className="flex items-center justify-between text-sm font-medium text-[var(--text-primary)]">
+          <span>Total</span>
+          <span>{formatMoney(order.total)}</span>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -182,29 +233,34 @@ function PaymentMethodOption({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-3 rounded-[var(--radius-lg)] border-2 p-4 text-start transition-all',
+        'mb-2 flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] p-4 text-start transition-colors',
         selected
           ? 'border-[var(--accent-navy)] bg-[var(--surface-hover)]'
-          : 'border-[var(--border)] hover:border-[var(--border-strong)]',
+          : 'hover:border-[var(--border-strong)]',
       )}
     >
-      <div
+      <span
         className={cn(
-          'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all',
-          selected ? 'border-[var(--accent-navy)]' : 'border-[var(--border-strong)]',
+          'flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full',
+          selected ? 'border-2 border-[var(--accent-navy)]' : 'border border-[var(--border-strong)]',
         )}
       >
-        {selected ? <div className="h-2.5 w-2.5 rounded-full bg-[var(--accent-navy)]" /> : null}
-      </div>
+        {selected ? <span className="h-[8px] w-[8px] rounded-full bg-[var(--accent-navy)]" /> : null}
+      </span>
 
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-white text-[var(--accent-navy)] shadow-sm">
+      <span
+        className={cn(
+          'flex flex-shrink-0 items-center justify-center text-[var(--text-secondary)]',
+          selected && 'text-[var(--accent-navy)]',
+        )}
+      >
         {icon}
-      </div>
+      </span>
 
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-primary">{title}</p>
-        <p className="mt-0.5 text-xs text-secondary">{description}</p>
-      </div>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-[var(--text-primary)]">{title}</span>
+        <span className="block text-[11px] text-[var(--text-secondary)]">{description}</span>
+      </span>
     </button>
   );
 }
@@ -212,9 +268,13 @@ function PaymentMethodOption({
 export default function CheckoutFormClient({
   order,
   shop,
+  trackingToken,
+  storeSlug,
 }: {
   order: any;
   shop: any;
+  trackingToken: string;
+  storeSlug: string;
 }) {
   const supabase = createClient();
 
@@ -223,8 +283,6 @@ export default function CheckoutFormClient({
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [submitted, setSubmitted] = useState(Boolean(order.payment_method));
-  const [summaryOpen, setSummaryOpen] = useState(false);
-
   const [addressName, setAddressName] = useState(order.address_name ?? '');
   const [addressPhone, setAddressPhone] = useState(order.address_phone ?? '');
   const [addressCity, setAddressCity] = useState(order.address_city ?? '');
@@ -374,382 +432,341 @@ export default function CheckoutFormClient({
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(26,26,46,0.06),_transparent_35%),var(--background)] px-4 py-10">
-        <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-xl flex-col items-center justify-center text-center">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--success-bg)] animate-[bounce_0.5s_ease-out]">
-            <Check size={36} className="text-[var(--success-text)]" strokeWidth={3} />
-          </div>
-
-          <h1 className="mb-2 text-2xl font-bold text-primary">Order placed!</h1>
-
-          <p className="mb-6 max-w-xs text-sm leading-relaxed text-secondary">
-            Your order #{order.order_number} has been sent to <span className="font-medium text-primary">{shop?.name}</span>.
-            {' '}They&apos;ll contact you on WhatsApp shortly.
-          </p>
-
-          <div className="mb-6 w-full max-w-sm overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
-            <div className="border-b border-[var(--border)] px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-secondary">Order summary</p>
+      <div className="min-h-screen bg-[var(--background)] px-4 py-10">
+        <div className="mx-auto max-w-lg px-4">
+          <section className="mb-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--success-bg)]">
+              <CheckCircle2 size={32} className="text-[var(--success-text)]" />
             </div>
 
-            <div className="space-y-2 p-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary">Order</span>
-                <span className="font-medium">#{order.order_number}</span>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">Order placed! 🎉</h1>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">Order #{order.order_number}</p>
+
+            <div className="mb-4 mt-4 border-t border-[var(--border)]" />
+
+          <div className="text-start text-sm text-[var(--text-secondary)]">
+            <p className="font-medium text-[var(--text-primary)]">What happens next?</p>
+            <ol className="mt-3 space-y-2 ps-5">
+              <li>The seller will review your order</li>
+              <li>You&apos;ll receive a WhatsApp message to confirm</li>
+              <li>Your order will be shipped once confirmed</li>
+            </ol>
+          </div>
+
+          <a
+            href={`/store/${storeSlug}/order/${trackingToken}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              minHeight: '48px',
+              padding: '12px',
+              marginBottom: '12px',
+              border: '1.5px solid var(--accent-navy)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '14px',
+              color: 'var(--accent-navy)',
+              fontWeight: 500,
+              background: 'var(--surface)',
+              textDecoration: 'none',
+            }}
+          >
+            <Package size={16} />
+            Track your order
+          </a>
+        </section>
+
+          <section className="mb-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
+            <h2 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Order summary</h2>
+
+            <div className="space-y-3">
+              {orderItems.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{item.product_name}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{item.variant_name}</p>
+                  </div>
+
+                  <div className="shrink-0 text-end">
+                    <p className="text-xs text-[var(--text-secondary)]">× {item.quantity}</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{item.line_total} EGP</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-4 mt-4 border-t border-[var(--border)]" />
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
+                <span>Subtotal</span>
+                <span>{order.subtotal} EGP</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary">Total</span>
-                <span className="font-bold text-primary">{order.total} EGP</span>
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
+                <span>Shipping</span>
+                <span>{order.shipping_fee} EGP</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary">Payment</span>
-                <span className="font-medium">{paymentMethod === 'cod' ? 'Cash on Delivery' : 'InstaPay'}</span>
-              </div>
-              <div className="flex justify-between gap-4 text-sm">
-                <span className="text-secondary">Delivering to</span>
-                <span className="max-w-[60%] text-end font-medium">
-                  {addressArea}, {addressCity}
-                </span>
+              <div className="flex items-center justify-between font-semibold text-[var(--text-primary)]">
+                <span>Total</span>
+                <span>{order.total} EGP</span>
               </div>
             </div>
-          </div>
+          </section>
 
           {(shop as any)?.theme?.thank_you_message ? (
-            <p className="mb-6 max-w-xs text-sm italic text-secondary">
-              &quot;{(shop as any).theme.thank_you_message}&quot;
-            </p>
+            <div className="mb-4 rounded-[var(--radius-md)] bg-[var(--surface-hover)] p-4 text-center text-sm italic text-[var(--text-secondary)]">
+              {(shop as any).theme.thank_you_message}
+            </div>
           ) : null}
 
           {shop?.whatsapp ? (
             <a
-              href={`https://wa.me/${String(shop.whatsapp).replace(/\D/g, '')}`}
+              href={`https://wa.me/${formatPhoneForWhatsApp(shop.whatsapp)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[48px] items-center gap-2 rounded-[var(--radius-lg)] bg-[#25D366] px-6 text-sm font-medium text-white transition-colors hover:bg-[#20C05C]"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--success-text)] px-4 text-sm font-medium text-white"
             >
-              <MessageCircle size={16} />
-              <span>Message seller on WhatsApp</span>
+              <MessageCircle size={18} />
+              <span>Contact seller on WhatsApp</span>
             </a>
           ) : null}
+
+          <a
+            href={`/store/${shop?.slug}`}
+            className="mt-4 block text-center text-sm text-[var(--text-secondary)]"
+          >
+            ← Back to store
+          </a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className="mx-auto max-w-6xl md:px-6 md:pt-6">
-        <div className="overflow-hidden bg-[var(--surface)] md:rounded-[var(--radius-xl)] md:border md:border-[var(--border)] md:shadow-[var(--shadow-md)]">
-          <CheckoutHeader shop={shop} orderNumber={order.order_number} />
-        </div>
-      </div>
+    <div className="min-h-screen bg-[var(--background)] px-4 py-4">
+      <div className="mx-auto flex max-w-[480px] flex-col gap-3">
+        <CheckoutHeaderCard shop={shop} subtitle={`Secure checkout · Order #${order.order_number}`} />
 
-      <div className="mx-auto max-w-6xl md:px-6">
         <CountdownBar
           expiresAt={order.expires_at}
           onExpire={() => {
             void expireOrder();
           }}
         />
-      </div>
 
-      <div className="mx-auto max-w-6xl md:grid md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-3 md:px-6 md:py-6">
-        <aside className="hidden self-start md:block">
-          <div className="sticky top-6 self-start overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)]">
-            <div className="border-b border-[var(--border)] px-4 py-5">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-secondary">Order summary</p>
-            </div>
+        <OrderSummaryCard order={order} orderItems={orderItems} />
 
-            <OrderSummaryContent order={order} orderItems={orderItems} />
-          </div>
-        </aside>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
+            <SectionTitle>Delivery details</SectionTitle>
 
-        <main className="min-w-0">
-          <div className="overflow-hidden bg-[var(--surface)] md:rounded-[var(--radius-xl)] md:border md:border-[var(--border)] md:shadow-[var(--shadow-md)]">
-            <div className="md:hidden">
-              <button
-                type="button"
-                onClick={() => setSummaryOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between border-b border-[var(--border)] bg-[var(--surface-hover)] px-4 py-3 text-sm font-medium text-primary"
-              >
-                <span className="flex items-center gap-2">
-                  <ShoppingBag size={15} />
-                  <span>{summaryOpen ? 'Hide order summary' : 'Show order summary'}</span>
-                  <ChevronDown
-                    size={14}
-                    className={cn('text-tertiary transition-transform', summaryOpen && 'rotate-180')}
-                  />
-                </span>
-                <span className="font-bold">{order.total} EGP</span>
-              </button>
-
-              {summaryOpen ? (
-                <div className="border-b border-[var(--border)]">
-                  <OrderSummaryContent order={order} orderItems={orderItems} />
-                </div>
-              ) : null}
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <section className="space-y-4 px-4 py-5">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-secondary">Delivery details</p>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-primary">
-                      Full name <span className="text-[var(--danger-text)]">*</span>
-                    </label>
-                    <Input
-                      required
-                      value={addressName}
-                      onChange={(event) => setAddressName(event.target.value)}
-                      placeholder="Ali Ahmed"
-                      className="min-h-[48px]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-primary">
-                      Phone <span className="text-[var(--danger-text)]">*</span>
-                    </label>
-                    <Input
-                      required
-                      type="tel"
-                      inputMode="numeric"
-                      value={addressPhone}
-                      onChange={(event) => setAddressPhone(event.target.value)}
-                      placeholder="01xxxxxxxxx"
-                      className="min-h-[48px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-primary">
-                      City / Governorate <span className="text-[var(--danger-text)]">*</span>
-                    </label>
-                    <Input
-                      required
-                      value={addressCity}
-                      onChange={(event) => setAddressCity(event.target.value)}
-                      placeholder="Cairo"
-                      className="min-h-[48px]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-primary">
-                      Area <span className="text-[var(--danger-text)]">*</span>
-                    </label>
-                    <Input
-                      required
-                      value={addressArea}
-                      onChange={(event) => setAddressArea(event.target.value)}
-                      placeholder="Nasr City"
-                      className="min-h-[48px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primary">
-                    Street address and building <span className="text-[var(--danger-text)]">*</span>
-                  </label>
-                  <Input
-                    required
-                    value={addressStreet}
-                    onChange={(event) => setAddressStreet(event.target.value)}
-                    placeholder="12 Example Street, Building 5, Apt 3"
-                    className="min-h-[48px]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1 text-sm font-medium text-primary">
-                    <span>Delivery notes</span>
-                    <span className="text-xs font-normal text-tertiary">(optional)</span>
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                    placeholder="Any special delivery instructions..."
-                    rows={2}
-                    className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--accent-navy)]"
-                  />
-                </div>
-              </section>
-
-              <section className="space-y-3 border-t border-[var(--border)] px-4 pb-4 pt-5">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-secondary">Payment method</p>
-
-                <PaymentMethodOption
-                  selected={paymentMethod === 'cod'}
-                  icon={<Wallet size={18} />}
-                  title="Cash on Delivery"
-                  description="Pay when your order arrives at your door"
-                  onClick={() => {
-                    setPaymentMethod('cod');
-                    setProofError('');
-                  }}
+            <div className="grid grid-cols-2 gap-[10px] max-[400px]:grid-cols-1">
+              <div className="space-y-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  Full name <span className="text-[var(--accent-coral)]">*</span>
+                </label>
+                <input
+                  required
+                  value={addressName}
+                  onChange={(event) => setAddressName(event.target.value)}
+                  placeholder="Ali Ahmed"
+                  className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
                 />
+              </div>
 
-                <PaymentMethodOption
-                  selected={paymentMethod === 'instapay'}
-                  icon={<Smartphone size={18} />}
-                  title="InstaPay"
-                  description="Transfer first, then upload your receipt"
-                  onClick={() => {
-                    setPaymentMethod('instapay');
-                    setProofError('');
-                  }}
+              <div className="space-y-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  Phone <span className="text-[var(--accent-coral)]">*</span>
+                </label>
+                <input
+                  required
+                  type="tel"
+                  inputMode="numeric"
+                  value={addressPhone}
+                  onChange={(event) => setAddressPhone(event.target.value)}
+                  placeholder="01xxxxxxxxx"
+                  className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
                 />
+              </div>
 
-                {paymentMethod === 'instapay' ? (
-                  <div className="space-y-3 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--info-bg)] bg-[var(--info-bg)] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--info-text)]">
-                      How to pay via InstaPay
-                    </p>
+              <div className="space-y-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  City / Governorate <span className="text-[var(--accent-coral)]">*</span>
+                </label>
+                <input
+                  required
+                  value={addressCity}
+                  onChange={(event) => setAddressCity(event.target.value)}
+                  placeholder="Cairo"
+                  className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
+                />
+              </div>
 
-                    <div className="space-y-2">
-                      {[
-                        'Open your banking app (CIB, NBE, Banque Misr, etc.)',
-                        'Go to InstaPay -> Send Money',
-                        `Enter number: ${shop?.instapay_number || 'Not available'}`,
-                        `Enter name: ${shop?.instapay_name || 'Seller name'}`,
-                        `Enter amount: ${order.total} EGP`,
-                        'Take a screenshot of the confirmation',
-                        'Upload it below',
-                      ].map((step, index) => (
-                        <div key={step} className="flex items-start gap-2.5">
-                          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[var(--info-text)] text-[10px] font-bold text-white">
-                            {index + 1}
-                          </span>
-                          <p className="text-xs leading-relaxed text-[var(--info-text)]">{step}</p>
-                        </div>
-                      ))}
+              <div className="space-y-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  Area <span className="text-[var(--accent-coral)]">*</span>
+                </label>
+                <input
+                  required
+                  value={addressArea}
+                  onChange={(event) => setAddressArea(event.target.value)}
+                  placeholder="Nasr City"
+                  className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
+                />
+              </div>
+
+              <div className="col-span-2 space-y-1 max-[400px]:col-span-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  Street address and building <span className="text-[var(--accent-coral)]">*</span>
+                </label>
+                <input
+                  required
+                  value={addressStreet}
+                  onChange={(event) => setAddressStreet(event.target.value)}
+                  placeholder="12 Example Street, Building 5, Apt 3"
+                  className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
+                />
+              </div>
+
+              <div className="col-span-2 space-y-1 max-[400px]:col-span-1">
+                <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                  Delivery notes <span className="text-[var(--text-tertiary)]">(optional)</span>
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Any special delivery instructions..."
+                  rows={2}
+                  className="min-h-[88px] w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent-navy)] focus:outline-none"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
+            <SectionTitle>Payment method</SectionTitle>
+
+            <PaymentMethodOption
+              selected={paymentMethod === 'cod'}
+              icon={<Wallet size={16} />}
+              title="Cash on Delivery"
+              description="Pay when your order arrives"
+              onClick={() => {
+                setPaymentMethod('cod');
+                setProofError('');
+              }}
+            />
+
+            <PaymentMethodOption
+              selected={paymentMethod === 'instapay'}
+              icon={<Smartphone size={16} />}
+              title="InstaPay"
+              description="Transfer first, then upload receipt"
+              onClick={() => {
+                setPaymentMethod('instapay');
+                setProofError('');
+              }}
+            />
+
+            {paymentMethod === 'instapay' ? (
+              <div className="mt-3 border-t border-[var(--border)] pt-3">
+                <div className="space-y-2">
+                  {[
+                    'Open your banking app',
+                    'Go to InstaPay',
+                    `Enter number: ${shop?.instapay_number || 'Not available'}`,
+                    `Enter name: ${shop?.instapay_name || 'Seller name'}`,
+                    `Enter amount: ${order.total} EGP`,
+                  ].map((step, index) => (
+                    <div key={step} className="flex gap-2 text-xs text-[var(--text-secondary)]">
+                      <span className="min-w-[16px] font-medium text-[var(--accent-navy)]">{index + 1}</span>
+                      <span>{step}</span>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="rounded-[var(--radius-md)] border border-[var(--info-text)]/20 bg-white p-3">
-                      <p className="mb-1 text-xs text-secondary">Transfer to:</p>
-                      <p className="text-base font-bold tracking-wide text-primary">
-                        {shop?.instapay_number || 'Not available'}
-                      </p>
-                      {shop?.instapay_name ? (
-                        <p className="mt-0.5 text-xs text-secondary">{shop.instapay_name}</p>
-                      ) : null}
-                    </div>
+                <div className="mt-3 space-y-2" id="proof-upload-zone">
+                  <label className="mb-1 block text-xs text-[var(--text-secondary)]">
+                    Payment proof <span className="text-[var(--accent-coral)]">*</span>
+                  </label>
 
-                    <div className="space-y-2" id="proof-upload-zone">
-                      <p className="text-xs font-medium text-[var(--info-text)]">
-                        Payment proof <span className="text-[var(--danger-text)]">*</span>
-                      </p>
-                      <p className="text-xs text-secondary">Upload a screenshot of your InstaPay transfer</p>
-
-                      <label
-                        htmlFor="proof-upload"
-                        className={cn(
-                          'flex min-h-[120px] w-full cursor-pointer flex-col items-center justify-center rounded-[var(--radius-lg)] border-2 border-dashed transition-colors',
-                          proofError
-                            ? 'border-[var(--danger-text)] bg-[var(--danger-bg)]'
-                            : proofFile
-                              ? 'border-[var(--success-text)] bg-[var(--success-bg)]'
-                              : 'border-[var(--border)] bg-white hover:border-[var(--border-strong)]',
-                        )}
-                      >
-                        {proofFile ? (
-                          <div className="flex flex-col items-center gap-2 p-4 text-center">
-                            {proofPreview ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={proofPreview}
-                                alt="Payment proof preview"
-                                className="max-h-[80px] rounded object-contain"
-                              />
-                            ) : (
-                              <div className="rounded-full border border-[var(--success-text)]/30 px-3 py-1 text-xs font-semibold text-[var(--success-text)]">
-                                PDF
-                              </div>
-                            )}
-                            <p className="text-xs font-medium text-[var(--success-text)]">{proofFile.name}</p>
-                            <p className="text-xs text-secondary">{formatFileSize(proofFile.size)} - Tap to change</p>
-                          </div>
+                  <label
+                    htmlFor="proof-upload"
+                    className={cn(
+                      'flex min-h-[120px] w-full cursor-pointer flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed p-4 text-center transition-colors',
+                      proofError
+                        ? 'border-[var(--danger-text)] bg-[var(--danger-bg)]'
+                        : proofFile
+                          ? 'border-[var(--success-text)] bg-[var(--success-bg)]'
+                          : 'border-[var(--border)] bg-[var(--background)] hover:border-[var(--border-strong)]',
+                    )}
+                  >
+                    {proofFile ? (
+                      <div className="flex flex-col items-center gap-2">
+                        {proofPreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={proofPreview}
+                            alt="Payment proof preview"
+                            className="max-h-[80px] rounded object-contain"
+                          />
                         ) : (
-                          <div className="flex flex-col items-center gap-2 p-4 text-center">
-                            <div className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-secondary">
-                              Upload
-                            </div>
-                            <p className="text-sm font-medium text-primary">Tap to upload proof</p>
-                            <p className="text-xs text-tertiary">JPG, PNG, WebP or PDF - Max 5MB</p>
+                          <div className="rounded-full border border-[var(--success-text)] px-3 py-1 text-xs font-semibold text-[var(--success-text)]">
+                            PDF
                           </div>
                         )}
-                      </label>
-
-                      <input
-                        type="file"
-                        id="proof-upload"
-                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-
-                      {proofError ? (
-                        <p className="flex items-center gap-1 text-xs text-[var(--danger-text)]">
-                          <span aria-hidden="true">!</span>
-                          <span>{proofError}</span>
+                        <p className="text-xs font-medium text-[var(--success-text)]">{proofFile.name}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {formatFileSize(proofFile.size)} - Tap to change
                         </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </section>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm font-medium text-[var(--text-primary)]">Upload payment screenshot</p>
+                        <p className="text-xs text-[var(--text-secondary)]">JPG, PNG, WebP or PDF - Max 5MB</p>
+                      </div>
+                    )}
+                  </label>
 
-              {error ? (
-                <div className="px-4 pb-4">
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
+                  <input
+                    type="file"
+                    id="proof-upload"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {proofError ? <p className="text-xs text-[var(--danger-text)]">{proofError}</p> : null}
                 </div>
-              ) : null}
-
-              <div className="hidden px-4 pb-6 md:block">
-                <button
-                  type="submit"
-                  disabled={submitting || uploading}
-                  className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--accent-navy)] text-base font-semibold text-white transition-all disabled:opacity-50"
-                >
-                  {submitting || uploading ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      {uploading ? 'Uploading...' : 'Placing order...'}
-                    </>
-                  ) : (
-                    `Complete order - ${order.total} EGP`
-                  )}
-                </button>
               </div>
+            ) : null}
+          </section>
 
-              <div className="h-24 md:hidden" />
+          {error ? (
+            <div className="rounded-[var(--radius-lg)] border border-[var(--danger-text)] bg-[var(--danger-bg)] p-4 text-sm text-[var(--danger-text)]">
+              {error}
+            </div>
+          ) : null}
 
-              <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3 pb-[calc(12px+env(safe-area-inset-bottom))] md:hidden">
-                <button
-                  type="submit"
-                  disabled={submitting || uploading}
-                  className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--accent-navy)] text-base font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-                >
-                  {submitting || uploading ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      {uploading ? 'Uploading...' : 'Placing order...'}
-                    </>
-                  ) : (
-                    `Complete order - ${order.total} EGP`
-                  )}
-                </button>
-              </div>
-            </form>
+          <div className="sticky bottom-0 mt-2 bg-[var(--background)] pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
+            <button
+              type="submit"
+              disabled={submitting || uploading}
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--accent-navy)] px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
+            >
+              {submitting || uploading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  {uploading ? 'Uploading...' : 'Placing order...'}
+                </>
+              ) : (
+                `Complete order · ${order.total} EGP`
+              )}
+            </button>
           </div>
-        </main>
+        </form>
       </div>
     </div>
   );

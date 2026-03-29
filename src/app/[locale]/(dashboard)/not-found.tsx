@@ -9,7 +9,7 @@ export default async function DashboardNotFound() {
       <div className="select-none text-[64px] font-bold leading-none text-[var(--border-strong)]">404</div>
       <div className="space-y-2">
         <h1 className="text-xl font-semibold text-primary">Page not found</h1>
-        <p className="text-sm text-secondary">This page doesn't exist in your dashboard.</p>
+        <p className="text-sm text-secondary">This page doesn&apos;t exist in your dashboard.</p>
       </div>
       <Link
         href={`/${locale}/dashboard`}

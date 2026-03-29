@@ -1,5 +1,6 @@
 'use client';
 
+import { storageImage } from '@/lib/image';
 import { useMemo, useState } from 'react';
 
 function isPdfUrl(url: string) {
@@ -10,6 +11,10 @@ function isPdfUrl(url: string) {
 export default function ReceiptModal({ fileUrl }: { fileUrl: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const isPdf = useMemo(() => isPdfUrl(fileUrl), [fileUrl]);
+  const imageUrl = useMemo(
+    () => storageImage(fileUrl, { width: 800, quality: 85 }) ?? fileUrl,
+    [fileUrl],
+  );
 
   return (
     <>
@@ -30,8 +35,10 @@ export default function ReceiptModal({ fileUrl }: { fileUrl: string }) {
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={fileUrl}
+              src={imageUrl}
               alt="Payment proof"
+              width={800}
+              height={800}
               className="max-h-[320px] w-full bg-slate-100 object-contain"
             />
             <div className="border-t border-slate-200 px-4 py-3">
@@ -70,8 +77,10 @@ export default function ReceiptModal({ fileUrl }: { fileUrl: string }) {
               <div className="flex max-h-[85vh] items-center justify-center bg-slate-950 p-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={fileUrl}
+                  src={imageUrl}
                   alt="Payment proof preview"
+                  width={800}
+                  height={800}
                   className="max-h-[80vh] w-auto max-w-full object-contain"
                 />
               </div>

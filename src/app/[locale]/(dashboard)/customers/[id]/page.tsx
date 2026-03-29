@@ -42,16 +42,27 @@ export default async function CustomerDetailPage({
   const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single();
   if (!shop) return <div>Shop not found</div>;
 
-  const { data: customer, error } = await supabase
-    .from('customers')
-    .select('*, orders ( id, order_number, status, total, created_at, order_items ( product_name, variant_name, quantity, unit_price ) )')
-    .eq('id', params.id)
-    .eq('shop_id', shop.id)
-    .single();
+  const [customerResult, ordersResult] = await Promise.all([
+    supabase.from('customers').select('*').eq('id', params.id).eq('shop_id', shop.id).single(),
+    supabase
+      .from('orders')
+      .select('id, order_number, status, total, created_at, order_items ( product_name, variant_name, quantity, unit_price )')
+      .eq('customer_id', params.id)
+      .eq('shop_id', shop.id),
+  ]);
 
-  if (error || !customer) {
+  if (customerResult.error || !customerResult.data) {
     notFound();
   }
+
+  if (ordersResult.error) {
+    throw ordersResult.error;
+  }
+
+  const customer = {
+    ...customerResult.data,
+    orders: ordersResult.data ?? [],
+  };
 
   const orders = Array.isArray(customer.orders) ? customer.orders : [];
   const totalSpent = orders

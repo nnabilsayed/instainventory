@@ -1,15 +1,17 @@
 'use client';
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { notify } from '@/lib/toast';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
-import { Package, Plus, Search, X } from 'lucide-react';
+import { Check, Copy, Download, Package, Plus, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import type { MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Customer = {
   name?: string;
@@ -21,9 +23,11 @@ type Order = {
   order_number: number;
   status: string;
   total: number;
+  source?: string | null;
   payment_method: string | null;
   created_at: string;
   expires_at?: string | null;
+  checkout_token: string | null;
   customers: Customer | Customer[] | null;
 };
 
@@ -56,31 +60,64 @@ function highlight(text: string, query: string) {
   );
 }
 
-export function OrdersClient({ orders, locale }: { orders: Order[]; locale: string }) {
+export function OrdersClient({
+  orders,
+  locale,
+  shopId,
+  shopSlug,
+}: {
+  orders: Order[];
+  locale: string;
+  shopId: string;
+  shopSlug: string;
+}) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const [orderList, setOrderList] = useState(orders);
   const [search, setSearch] = useState('');
   const [activeStatus, setActiveStatus] = useState<(typeof STATUS_FILTERS)[number]>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copiedOrderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   const selectableStatuses = ['confirmed', 'shipped'];
+
+  useEffect(() => {
+    setOrderList(orders);
+  }, [orders]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
+      if (copiedOrderTimeoutRef.current) {
+        clearTimeout(copiedOrderTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const counts = useMemo(
     () =>
       STATUS_FILTERS.reduce(
         (acc, status) => {
-          acc[status] = status === 'all' ? orders.length : orders.filter((order) => order.status === status).length;
+          acc[status] =
+            status === 'all' ? orderList.length : orderList.filter((order) => order.status === status).length;
           return acc;
         },
-        {} as Record<(typeof STATUS_FILTERS)[number], number>
+        {} as Record<(typeof STATUS_FILTERS)[number], number>,
       ),
-    [orders]
+    [orderList],
   );
 
   const filtered = useMemo(() => {
-    let result = orders;
+    let result = orderList;
 
     if (activeStatus !== 'all') {
       result = result.filter((order) => order.status === activeStatus);
@@ -105,7 +142,82 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
     }
 
     return result;
-  }, [orders, search, activeStatus]);
+  }, [orderList, search, activeStatus]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`orders-list-${shopId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `shop_id=eq.${shopId}`,
+        },
+        async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const { data: newOrder } = await supabase
+              .from('orders')
+              .select(
+                'id, order_number, status, total, payment_method, created_at, expires_at, checkout_token, source, customers(name, phone)',
+              )
+              .eq('id', payload.new.id)
+              .single();
+
+            if (!newOrder) return;
+
+            setOrderList((prev) => [newOrder, ...prev.filter((order) => order.id !== newOrder.id)]);
+            setHighlightedOrderId(newOrder.id);
+
+            if (highlightTimeoutRef.current) {
+              clearTimeout(highlightTimeoutRef.current);
+            }
+
+            highlightTimeoutRef.current = setTimeout(() => {
+              setHighlightedOrderId((current) => (current === newOrder.id ? null : current));
+            }, 2000);
+
+            notify.success(`New order #${newOrder.order_number} received!`);
+            return;
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            setOrderList((prev) =>
+              prev.map((order) =>
+                order.id === payload.new.id
+                  ? {
+                      ...order,
+                      status: payload.new.status ?? order.status,
+                    }
+                  : order,
+              ),
+            );
+            return;
+          }
+
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+
+            setOrderList((prev) => prev.filter((order) => order.id !== deletedId));
+            setSelectedIds((prev) => {
+              if (!prev.has(deletedId)) return prev;
+
+              const next = new Set(prev);
+              next.delete(deletedId);
+              return next;
+            });
+
+            setHighlightedOrderId((current) => (current === deletedId ? null : current));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [shopId, supabase]);
 
   const selectedOrders = filtered.filter((order) => selectedIds.has(order.id));
   const selectedStatus = selectedOrders[0]?.status ?? null;
@@ -150,6 +262,29 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
     setSelectedIds(new Set());
   }
 
+  async function handleCopyCheckoutLink(
+    event: MouseEvent<HTMLButtonElement>,
+    order: Order,
+  ) {
+    event.stopPropagation();
+
+    if (!order.checkout_token) return;
+
+    const checkoutUrl = `${window.location.origin}/store/${shopSlug}/checkout/${order.checkout_token}`;
+
+    await navigator.clipboard.writeText(checkoutUrl);
+    notify.linkCopied();
+    setCopiedOrderId(order.id);
+
+    if (copiedOrderTimeoutRef.current) {
+      clearTimeout(copiedOrderTimeoutRef.current);
+    }
+
+    copiedOrderTimeoutRef.current = window.setTimeout(() => {
+      setCopiedOrderId((current) => (current === order.id ? null : current));
+    }, 2000);
+  }
+
   async function handleBulkUpdate() {
     if (!bulkAction || selectedIds.size === 0) return;
     setBulkLoading(true);
@@ -173,17 +308,57 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
     setBulkLoading(false);
   }
 
+  async function handleExport() {
+    try {
+      setExporting(true);
+      const res = await fetch('/api/exports/orders');
+
+      if (!res.ok) {
+        throw new Error('Failed to export orders');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const disposition = res.headers.get('Content-Disposition');
+      const filenameMatch = disposition?.match(/filename="(.+)"/);
+
+      a.href = url;
+      a.download = filenameMatch?.[1] ?? 'orders.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : 'Failed to export orders');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-primary">Orders</h1>
-        <Link
-          href={`/${locale}/orders/new`}
-          className="flex min-h-[40px] items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--accent-navy)] px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)]"
-        >
-          <Plus size={15} />
-          <span className="hidden sm:inline">New Order</span>
-        </Link>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void handleExport()}
+            disabled={exporting}
+            className="w-full justify-center sm:w-auto"
+          >
+            <Download size={15} />
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </Button>
+          <Link
+            href={`/${locale}/orders/new`}
+            className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--accent-navy)] px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] sm:min-h-[40px]"
+          >
+            <Plus size={15} />
+            <span className="hidden sm:inline">New Order</span>
+          </Link>
+        </div>
       </div>
 
       <div className="relative">
@@ -316,15 +491,18 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
             const customerPhone = customer?.phone ?? '';
             const displayPhone = customerPhone ? formatPhoneDisplay(customerPhone) : 'No phone';
             const paymentMethodLabel = getPaymentMethodLabel(order.payment_method);
+            const canCopyCheckoutLink =
+              (order.status === 'draft' || order.status === 'pending') && Boolean(order.checkout_token);
 
             return (
               <div
                 key={order.id}
                 className={cn(
                   'flex items-start gap-3 rounded-[var(--radius-lg)] border bg-[var(--surface)] px-4 py-3 transition-colors',
+                  highlightedOrderId === order.id && 'order-row-flash',
                   selectedIds.has(order.id)
                     ? 'border-[var(--accent-navy)] bg-[var(--info-bg)]'
-                    : 'border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                    : 'border-[var(--border)] hover:bg-[var(--surface-hover)]',
                 )}
               >
                 {isSelectable(order) ? (
@@ -362,6 +540,23 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold text-primary">#{order.order_number}</span>
+                        {order.source === 'self_checkout' ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '1px 7px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              background: 'var(--info-bg)',
+                              color: 'var(--info-text)',
+                              marginInlineStart: '6px',
+                            }}
+                          >
+                            Self-checkout
+                          </span>
+                        ) : null}
                         <StatusBadge status={order.status as any} />
                       </div>
                       <p className="mt-0.5 truncate text-sm font-medium text-primary">{highlight(customerName, search)}</p>
@@ -385,6 +580,24 @@ export function OrdersClient({ orders, locale }: { orders: Order[]; locale: stri
                     </div>
                   </div>
                 </Link>
+
+                <div className="flex min-h-[44px] w-11 flex-shrink-0 items-center justify-center self-center">
+                  {canCopyCheckoutLink ? (
+                    <button
+                      type="button"
+                      onClick={(event) => void handleCopyCheckoutLink(event, order)}
+                      aria-label="Copy checkout link"
+                      className={cn(
+                        'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md p-[6px] transition-colors hover:bg-[var(--surface-hover)]',
+                        copiedOrderId === order.id
+                          ? 'text-[var(--success-text)]'
+                          : 'text-[var(--text-tertiary)]',
+                      )}
+                    >
+                      {copiedOrderId === order.id ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             );
           })}

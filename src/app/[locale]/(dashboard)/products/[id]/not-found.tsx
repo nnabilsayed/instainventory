@@ -9,7 +9,7 @@ export default async function ProductNotFound() {
       <div className="text-5xl">🏷️</div>
       <div className="space-y-2">
         <h1 className="text-xl font-semibold text-primary">Product not found</h1>
-        <p className="text-sm text-secondary">This product doesn't exist or may have been deleted.</p>
+        <p className="text-sm text-secondary">This product doesn&apos;t exist or may have been deleted.</p>
       </div>
       <Link
         href={`/${locale}/products`}

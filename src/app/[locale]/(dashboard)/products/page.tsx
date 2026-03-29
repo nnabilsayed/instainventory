@@ -27,7 +27,7 @@ export default async function ProductsPage({
         price,
         is_active,
         category_id,
-        product_variants(id, name, size, color, stock_qty),
+        product_variants(id, name, size, color, stock_qty, image_url, price_override),
         categories(id, name)
       `)
       .eq('shop_id', shop.id)
@@ -38,6 +38,10 @@ export default async function ProductsPage({
       .eq('shop_id', shop.id)
       .order('sort_order', { ascending: true }),
   ]);
+
+  if (productsResult.error || categoriesResult.error) {
+    throw productsResult.error ?? categoriesResult.error;
+  }
 
   const products = (productsResult.data ?? []).map((product: any) => ({
     ...product,

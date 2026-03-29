@@ -16,6 +16,7 @@ import {
   Package,
   Settings,
   ShoppingCart,
+  Star,
   Users,
 } from 'lucide-react';
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/products', icon: Package, labelKey: 'products' },
   { href: '/orders', icon: ShoppingCart, labelKey: 'orders' },
   { href: '/customers', icon: Users, labelKey: 'customers' },
+  { href: '/reviews', icon: Star, labelKey: 'reviews' },
   { href: '/settings', icon: Settings, labelKey: 'settings' },
 ] as const;
 

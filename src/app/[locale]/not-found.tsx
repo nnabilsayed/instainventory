@@ -11,7 +11,7 @@ export default async function NotFound() {
 
         <div className="space-y-2">
           <h1 className="text-xl font-semibold text-primary">Page not found</h1>
-          <p className="text-sm text-secondary">This page doesn't exist or has been removed.</p>
+          <p className="text-sm text-secondary">This page doesn&apos;t exist or has been removed.</p>
         </div>
 
         <Link

@@ -4,8 +4,8 @@ const config = {
   not_found: {
     emoji: '🔗',
     title: 'Link not found',
-    message: 'This checkout link is invalid or has been removed.',
-    hint: 'Contact the seller for a new link.',
+    message: 'This checkout link is no longer valid. Please ask the seller for a new link.',
+    hint: 'If you still want the order, contact the seller and request a fresh checkout link.',
     showWhatsApp: false,
   },
   already_submitted: {

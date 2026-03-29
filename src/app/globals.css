@@ -64,12 +64,12 @@
     background-color: #F7F6F3;
     background: var(--background);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-inter), sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
-  [lang="ar"] body {
-    font-family: 'Cairo', sans-serif;
+  [lang="ar"] {
+    font-family: var(--font-cairo), sans-serif;
   }
 }
 
@@ -85,4 +85,18 @@
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 4px;
+}
+
+@keyframes flash {
+  0% {
+    background: var(--success-bg);
+  }
+
+  100% {
+    background: transparent;
+  }
+}
+
+.order-row-flash {
+  animation: flash 2s ease-out;
 }

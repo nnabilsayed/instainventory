@@ -1,17 +1,34 @@
 'use client';
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { formatPhoneForWhatsApp } from '@/lib/phone';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
+import { getOrderMessage } from '@/lib/whatsapp';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 interface OrderActionsProps {
   orderId: string;
   status: string;
+  orderNumber: number;
+  addressName: string;
+  checkoutToken: string | null;
+  shop: {
+    slug: string;
+    whatsapp: string | null;
+    autoWhatsappNotifications: boolean;
+  };
 }
 
-export default function OrderActions({ orderId, status }: OrderActionsProps) {
+export default function OrderActions({
+  orderId,
+  status,
+  orderNumber,
+  addressName,
+  checkoutToken,
+  shop,
+}: OrderActionsProps) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
@@ -19,10 +36,7 @@ export default function OrderActions({ orderId, status }: OrderActionsProps) {
 
   async function updateStatus(newStatus: string) {
     setLoading(true);
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId);
+    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
 
     if (error) {
       notify.orderError();
@@ -38,6 +52,53 @@ export default function OrderActions({ orderId, status }: OrderActionsProps) {
     setConfirmCancelOpen(false);
     setLoading(false);
     router.refresh();
+    return true;
+  }
+
+  function getWhatsappUrl(nextStatus: 'confirmed' | 'shipped' | 'delivered') {
+    if (!shop.autoWhatsappNotifications || !shop.whatsapp) {
+      return null;
+    }
+
+    const trackingUrl = checkoutToken
+      ? `${window.location.origin}/store/${shop.slug}/order/${checkoutToken}`
+      : undefined;
+
+    if (nextStatus === 'confirmed') {
+      const message = encodeURIComponent(
+        `Hi ${addressName}! âœ… Your order #${orderNumber} has been confirmed and is being prepared.\n\nTrack your order here: ${trackingUrl ?? ''}`,
+      );
+      return `https://wa.me/${formatPhoneForWhatsApp(shop.whatsapp)}?text=${message}`;
+    }
+
+    if (nextStatus === 'shipped') {
+      const message = encodeURIComponent(
+        `Hi ${addressName}! ðŸšš Your order #${orderNumber} is on its way!\n\nTrack your order here: ${trackingUrl ?? ''}`,
+      );
+      return `https://wa.me/${formatPhoneForWhatsApp(shop.whatsapp)}?text=${message}`;
+    }
+
+    const message = encodeURIComponent(
+      getOrderMessage('delivered', {
+        customerName: addressName,
+        orderId,
+        orderNumber,
+        shopName: 'InstaInventory',
+        shopSlug: shop.slug,
+      }),
+    );
+
+    return `https://wa.me/${formatPhoneForWhatsApp(shop.whatsapp)}?text=${message}`;
+  }
+
+  async function handleStatusAction(nextStatus: 'confirmed' | 'shipped' | 'delivered') {
+    const whatsappUrl = getWhatsappUrl(nextStatus);
+    const popup = whatsappUrl ? window.open(whatsappUrl, '_blank') : null;
+    const success = await updateStatus(nextStatus);
+
+    if (!success && popup) {
+      popup.close();
+    }
   }
 
   if (status === 'pending') {
@@ -46,7 +107,7 @@ export default function OrderActions({ orderId, status }: OrderActionsProps) {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => updateStatus('confirmed')}
+            onClick={() => void handleStatusAction('confirmed')}
             disabled={loading}
             className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
           >
@@ -82,7 +143,7 @@ export default function OrderActions({ orderId, status }: OrderActionsProps) {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => updateStatus('shipped')}
+            onClick={() => void handleStatusAction('shipped')}
             disabled={loading}
             className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
           >
@@ -118,7 +179,7 @@ export default function OrderActions({ orderId, status }: OrderActionsProps) {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => updateStatus('delivered')}
+            onClick={() => void handleStatusAction('delivered')}
             disabled={loading}
             className="flex min-h-[48px] flex-1 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-navy)] text-sm font-medium text-white transition-colors hover:bg-[var(--accent-navy-hover)] disabled:opacity-50"
           >

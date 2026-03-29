@@ -1,18 +1,18 @@
 'use client';
 
+import { createDraftOrder } from './actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FieldError } from '@/components/ui/field-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatPhoneDisplay, normalizeEgyptianPhone } from '@/lib/phone';
+import { formatPhoneDisplay } from '@/lib/phone';
 import { Separator } from '@/components/ui/separator';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { customerSchema } from '@/lib/validations';
-import { nanoid } from 'nanoid';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Link as LinkIcon, Minus, Plus, Search, X } from 'lucide-react';
@@ -291,99 +291,33 @@ export default function NewOrderPage() {
     setErrors({});
     const loadingToast = notify.loading('Creating draft...');
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    const result = await createDraftOrder({
+      customerMode,
+      selectedCustomerId,
+      newCustomerName,
+      newCustomerPhone,
+      expiryHours,
+      subtotal,
+      discountType,
+      discountValue,
+      cart,
+    });
+
+    if (!result.orderId) {
+      setError(result.error || 'Failed to create order');
       notify.dismiss(loadingToast);
-      notify.orderError();
-      setLoading(false);
-      return;
-    }
-
-    const { data: shop } = await supabase.from('shops').select('id, default_shipping_fee').eq('owner_id', user.id).single();
-    if (!shop) {
-      setError('Shop not found');
-      notify.dismiss(loadingToast);
-      notify.orderError();
-      setLoading(false);
-      return;
-    }
-
-    let finalCustomerId = selectedCustomerId;
-    if (customerMode === 'new') {
-      const { data: newCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({ shop_id: shop.id, name: newCustomerName, phone: normalizeEgyptianPhone(newCustomerPhone) })
-        .select('id')
-        .single();
-
-      if (customerError) {
-        setError(customerError.message);
-        notify.dismiss(loadingToast);
+      if (result.error?.toLowerCase().includes('customer')) {
         notify.customerError();
-        setLoading(false);
-        return;
+      } else {
+        notify.orderError();
       }
-
-      finalCustomerId = newCustomer.id;
-    } else if (!finalCustomerId) {
-      setError('Please select a customer.');
-      notify.dismiss(loadingToast);
-      notify.orderError();
-      setLoading(false);
-      return;
-    }
-
-    const token = nanoid(21);
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        shop_id: shop.id,
-        customer_id: finalCustomerId,
-        status: 'draft',
-        checkout_token: token,
-        expiry_duration: expiryHours,
-        subtotal,
-        shipping_fee: shop.default_shipping_fee,
-        total: subtotal + shop.default_shipping_fee,
-        discount_type: discountType ?? null,
-        discount_value: discountType ? parseFloat(discountValue) || 0 : 0,
-      })
-      .select('id')
-      .single();
-
-    if (orderError || !order) {
-      setError(orderError?.message || 'Failed to create order');
-      notify.dismiss(loadingToast);
-      notify.orderError();
-      setLoading(false);
-      return;
-    }
-
-    const itemsToInsert = cart.map((item) => ({
-      order_id: order.id,
-      variant_id: item.variant_id,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      unit_price: item.unit_price,
-      quantity: item.quantity,
-      line_total: item.line_total,
-      variant_image_url: item.variant_image_url || null,
-    }));
-
-    const { error: itemError } = await supabase.from('order_items').insert(itemsToInsert);
-    if (itemError) {
-      setError(itemError.message);
-      notify.dismiss(loadingToast);
-      notify.orderError();
       setLoading(false);
       return;
     }
 
     notify.dismiss(loadingToast);
     notify.draftCreated();
-    router.push(`/${locale}/orders/${order.id}`);
+    router.push(`/${locale}/orders/${result.orderId}`);
   };
 
   const summaryContent = (

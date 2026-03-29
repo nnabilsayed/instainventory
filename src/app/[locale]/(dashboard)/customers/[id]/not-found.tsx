@@ -9,7 +9,7 @@ export default async function CustomerNotFound() {
       <div className="text-5xl">👤</div>
       <div className="space-y-2">
         <h1 className="text-xl font-semibold text-primary">Customer not found</h1>
-        <p className="text-sm text-secondary">This customer doesn't exist or may have been removed.</p>
+        <p className="text-sm text-secondary">This customer doesn&apos;t exist or may have been removed.</p>
       </div>
       <Link
         href={`/${locale}/customers`}

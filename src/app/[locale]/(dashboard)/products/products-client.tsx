@@ -29,6 +29,8 @@ type Product = {
     size: string | null;
     color: string | null;
     stock_qty: number;
+    image_url?: string | null;
+    price?: number | null;
   }[];
 };
 
@@ -478,6 +480,8 @@ function ProductCard({
                 size: variant.size,
                 color: variant.color,
                 stock_qty: variant.stock_qty,
+                image_url: variant.image_url ?? null,
+                price: variant.price_override ?? product.price ?? null,
               }))}
             />
             <select

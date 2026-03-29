@@ -56,7 +56,7 @@ export default async function OrderDetailPage({
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name, slug')
+    .select('id, name, slug, whatsapp, auto_whatsapp_notifications')
     .eq('owner_id', user.id)
     .single();
 
@@ -64,18 +64,33 @@ export default async function OrderDetailPage({
     return <div className="p-6">Shop not found</div>;
   }
 
-  const { data, error } = await supabase
+  const { data: orderData, error: orderError } = await supabase
     .from('orders')
-    .select('*, customers (*), order_items (*)')
+    .select('*')
     .eq('id', params.id)
     .eq('shop_id', shop.id)
     .single();
 
-  if (error || !data) {
+  if (orderError || !orderData) {
     notFound();
   }
 
-  let order = data;
+  const [orderItemsResult, customerResult] = await Promise.all([
+    supabase.from('order_items').select('*').eq('order_id', orderData.id),
+    orderData.customer_id
+      ? supabase.from('customers').select('*').eq('id', orderData.customer_id).eq('shop_id', shop.id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (orderItemsResult.error || customerResult.error) {
+    throw orderItemsResult.error ?? customerResult.error;
+  }
+
+  let order = {
+    ...orderData,
+    customers: customerResult.data,
+    order_items: orderItemsResult.data ?? [],
+  };
 
   if (isOrderExpired(order.expires_at) && isOpenCheckoutStatus(order.status)) {
     const { error: expiryError } = await supabase
@@ -96,13 +111,16 @@ export default async function OrderDetailPage({
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-  const checkoutUrl = `${baseUrl}/${params.locale}/checkout/${order.checkout_token}`;
+  const checkoutUrl = `${baseUrl}/store/${shop.slug}/checkout/${order.checkout_token}`;
   const expiryLabel = getExpiryRelativeLabel(order.expires_at);
   const paymentMethodLabel = getPaymentMethodLabel(order.payment_method);
   const messageParams = {
     customerName: order.customers?.name ?? 'Customer',
+    orderId: order.id,
     orderNumber: order.order_number,
     shopName: shop.name,
+    shopSlug: shop.slug,
+    checkoutToken: order.checkout_token,
     checkoutLink: checkoutUrl,
     total: Number(order.total),
   };
@@ -122,7 +140,26 @@ export default async function OrderDetailPage({
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Order #{order.order_number}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-slate-900">Order #{order.order_number}</h1>
+            {order.source === 'self_checkout' ? (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  background: 'var(--info-bg)',
+                  color: 'var(--info-text)',
+                  marginInlineStart: '8px',
+                }}
+              >
+                Self-checkout
+              </span>
+            ) : null}
+          </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">{order.status}</span>
           {expiryLabel ? <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">{expiryLabel}</span> : null}
         </div>
@@ -135,7 +172,18 @@ export default async function OrderDetailPage({
         ) : null}
 
         <div className="mt-4">
-          <OrderActions orderId={order.id} status={order.status} />
+          <OrderActions
+            orderId={order.id}
+            status={order.status}
+            orderNumber={order.order_number}
+            addressName={order.address_name ?? order.customers?.name ?? 'Customer'}
+            checkoutToken={order.checkout_token}
+            shop={{
+              slug: shop.slug,
+              whatsapp: shop.whatsapp,
+              autoWhatsappNotifications: shop.auto_whatsapp_notifications ?? true,
+            }}
+          />
         </div>
         {order.status === 'draft' ? (
           <div className="mt-4">

@@ -9,8 +9,14 @@ const handleI18nRouting = createMiddleware({
 });
 
 export async function middleware(request: NextRequest) {
-  const response = handleI18nRouting(request);
   const { pathname } = request.nextUrl;
+
+  // Skip locale middleware for public store routes
+  if (pathname.startsWith('/store/')) {
+    return NextResponse.next();
+  }
+
+  const response = handleI18nRouting(request);
   const segments = pathname.split('/').filter(Boolean);
   const locale = segments[0] === 'ar' || segments[0] === 'en' ? segments[0] : 'ar';
   const pathWithoutLocale = `/${segments.slice(1).join('/')}`;

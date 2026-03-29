@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FieldError } from '@/components/ui/field-error';
 import { Input } from '@/components/ui/input';
+import { OnlineStoreSection } from '@/components/settings/online-store-section';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { normalizeEgyptianPhone } from '@/lib/phone';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { settingsSchema } from '@/lib/validations';
+import { cn } from '@/lib/utils';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -41,6 +43,9 @@ export default function SettingsPage() {
   const [instapayName, setInstapayName] = useState('');
   const [instapayNumber, setInstapayNumber] = useState('');
   const [shippingFee, setShippingFee] = useState('0');
+  const [selfCheckoutEnabled, setSelfCheckoutEnabled] = useState(false);
+  const [autoWhatsappNotifications, setAutoWhatsappNotifications] = useState(true);
+  const [savingAutoWhatsapp, setSavingAutoWhatsapp] = useState(false);
 
   function validateSlug(value: string): string | null {
     if (!value) return 'Store URL is required';
@@ -74,6 +79,8 @@ export default function SettingsPage() {
         setInstapayName(data.instapay_name || '');
         setInstapayNumber(data.instapay_number || '');
         setShippingFee(data.default_shipping_fee?.toString() || '0');
+        setSelfCheckoutEnabled(Boolean(data.self_checkout_enabled));
+        setAutoWhatsappNotifications(data.auto_whatsapp_notifications ?? true);
       }
 
       setLoading(false);
@@ -157,6 +164,31 @@ export default function SettingsPage() {
     setSigningOut(false);
   };
 
+  async function handleAutoWhatsappToggle() {
+    if (!shopId || savingAutoWhatsapp) return;
+
+    const newValue = !autoWhatsappNotifications;
+    setAutoWhatsappNotifications(newValue);
+    setSavingAutoWhatsapp(true);
+
+    const { error: updateError } = await supabase
+      .from('shops')
+      .update({
+        auto_whatsapp_notifications: newValue,
+      })
+      .eq('id', shopId);
+
+    if (updateError) {
+      setAutoWhatsappNotifications(!newValue);
+      notify.error('Failed to save');
+      setSavingAutoWhatsapp(false);
+      return;
+    }
+
+    notify.success('Settings saved');
+    setSavingAutoWhatsapp(false);
+  }
+
   if (loading) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -234,7 +266,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="mt-1 text-xs text-[var(--warning-text)] opacity-80">
                     Every order link you have already shared with customers will stop working immediately. Customers with
-                    those links will see a "link not found" error.
+                    those links will see a &quot;link not found&quot; error.
                   </p>
                 </div>
               </div>
@@ -323,6 +355,56 @@ export default function SettingsPage() {
           </div>
           <FieldError message={errors.default_shipping_fee} />
           <p className="text-xs text-secondary">Applied to every new order by default</p>
+        </CardContent>
+      </Card>
+
+      <OnlineStoreSection
+        shopId={shopId}
+        slug={slug}
+        initialEnabled={selfCheckoutEnabled}
+        appUrl={appUrl}
+      />
+
+      <Card>
+        <CardContent className="p-4">
+          <h2 className="mb-1 text-sm font-medium text-[var(--text-primary)]">Customer communication</h2>
+          <p className="mb-4 text-xs text-[var(--text-secondary)]">
+            Configure how you communicate with customers about their orders
+          </p>
+
+          <div className="flex min-h-[44px] items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">Auto WhatsApp notifications</p>
+              <p className="mt-0.5 max-w-[280px] text-xs text-[var(--text-secondary)]">
+                Automatically open WhatsApp with a pre-filled message when you confirm, ship, or deliver an
+                order. One tap to send.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoWhatsappNotifications}
+              aria-label="Auto WhatsApp notifications"
+              disabled={savingAutoWhatsapp}
+              onClick={() => void handleAutoWhatsappToggle()}
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center disabled:opacity-60"
+            >
+              <span
+                className={cn(
+                  'relative inline-flex h-[24px] w-[44px] rounded-full transition-all duration-200',
+                  autoWhatsappNotifications ? 'bg-[var(--accent-navy)]' : 'bg-[var(--border-strong)]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-[2px] h-[20px] w-[20px] rounded-full bg-white transition-all duration-200',
+                    autoWhatsappNotifications ? 'translate-x-[22px]' : 'translate-x-[2px]',
+                  )}
+                />
+              </span>
+            </button>
+          </div>
         </CardContent>
       </Card>
 

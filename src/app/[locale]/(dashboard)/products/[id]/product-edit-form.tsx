@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { StockAdjuster } from '@/components/stock-adjuster';
 import { createClient } from '@/lib/supabase/client';
+import { storageImage } from '@/lib/image';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { productSchema, variantSchema } from '@/lib/validations';
@@ -295,6 +296,7 @@ export default function ProductEditForm({
       });
     }
 
+    const newVariantIds = preparedVariants.filter((variant) => variant.id.startsWith('new-')).map((variant) => variant.id);
     const toUpdate = preparedVariants.filter((variant) => !variant.id.startsWith('new-')).map((variant) => {
       const { imageFile, imagePreview, isManual, ...rest } = variant;
       void imageFile;
@@ -310,6 +312,9 @@ export default function ProductEditForm({
 
     const toInsert = preparedVariants.filter((variant) => variant.id.startsWith('new-')).map((variant) => {
       const { id, imageFile, imagePreview, isManual, ...rest } = variant;
+      void id;
+      void imageFile;
+      void imagePreview;
       void isManual;
       return {
         ...rest,
@@ -320,30 +325,73 @@ export default function ProductEditForm({
       };
     });
 
+    let updatedVariants: any[] = [];
+    let insertedVariants: any[] = [];
+
     if (toUpdate.length > 0) {
-      const { error: updateError } = await supabase.from('product_variants').upsert(toUpdate);
-      if (updateError) {
-        setError(updateError.message);
-        notify.productError();
-        setLoading(false);
-        return;
+      const results: any[] = [];
+      for (const variant of toUpdate) {
+        const { id, product_id, ...fields } = variant;
+        void product_id;
+        const { data, error: updateError } = await supabase
+          .from('product_variants')
+          .update(fields)
+          .eq('id', id)
+          .select('*')
+          .single();
+        if (updateError) {
+          setError(updateError.message);
+          notify.productError();
+          setLoading(false);
+          return;
+        }
+        if (data) results.push(data);
       }
+      updatedVariants = results;
     }
 
     if (toInsert.length > 0) {
-      const { error: insertError } = await supabase.from('product_variants').insert(toInsert);
+      const { data, error: insertError } = await supabase.from('product_variants').insert(toInsert).select('*');
       if (insertError) {
         setError(insertError.message);
         notify.productError();
         setLoading(false);
         return;
       }
+
+      insertedVariants = data ?? [];
+    }
+
+    if (updatedVariants.length > 0 || insertedVariants.length > 0) {
+      const updatedVariantMap = new Map(
+        updatedVariants.map((variant) => [String(variant.id), normalizeVariant(variant)])
+      );
+      const insertedVariantRows = insertedVariants.map(normalizeVariant);
+      const newVariantIdSet = new Set(newVariantIds);
+      let insertedIndex = 0;
+
+      setVariants((currentVariants) =>
+        currentVariants.flatMap((variant) => {
+          const updatedVariant = updatedVariantMap.get(variant.id);
+
+          if (updatedVariant) {
+            return [updatedVariant];
+          }
+
+          if (newVariantIdSet.has(variant.id)) {
+            const insertedVariant = insertedVariantRows[insertedIndex];
+            insertedIndex += 1;
+            return insertedVariant ? [insertedVariant] : [variant];
+          }
+
+          return [variant];
+        })
+      );
     }
 
     setLoading(false);
     notify.productUpdated();
     router.push(`/${locale}/products`);
-    router.refresh();
   };
 
   return (
@@ -468,7 +516,13 @@ export default function ProductEditForm({
                       <label htmlFor={`variant-image-${variant.id}`} className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border-strong)] bg-[var(--surface-hover)]">
                         {variant.imagePreview ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={variant.imagePreview} alt={variantName} className="h-full w-full rounded-[var(--radius-md)] object-cover" />
+                          <img
+                            src={storageImage(variant.imagePreview, { width: 600, quality: 80 }) ?? variant.imagePreview}
+                            alt={variantName}
+                            width={48}
+                            height={48}
+                            className="h-full w-full rounded-[var(--radius-md)] object-cover"
+                          />
                         ) : (
                           <ImagePlus size={16} className="text-secondary" />
                         )}
@@ -507,6 +561,10 @@ export default function ProductEditForm({
                           variantId={variant.id}
                           shopId={shopId}
                           initialStock={parseInt(variant.stock_qty.toString(), 10) || 0}
+                          imageUrl={variant.image_url ?? null}
+                          price={
+                            variant.price_override === '' ? Number(price) || null : Number(variant.price_override)
+                          }
                           variantLabel={buildVariantName(variant.size, variant.color)}
                           onStockChange={(nextStock) => handleVariantChange(index, 'stock_qty', String(nextStock))}
                         />

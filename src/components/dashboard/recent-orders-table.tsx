@@ -2,6 +2,7 @@
 
 import { StatusBadge, type OrderStatus } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +13,7 @@ function getRowHref(locale: string, orderId: string) {
 export function RecentOrdersTable({
   locale,
   recentOrders,
+  highlightedOrderId,
 }: {
   locale: string;
   recentOrders: Array<{
@@ -22,6 +24,7 @@ export function RecentOrdersTable({
     expires_at?: string | null;
     customers?: { name?: string } | { name?: string }[] | null;
   }>;
+  highlightedOrderId?: string | null;
 }) {
   const router = useRouter();
 
@@ -53,7 +56,10 @@ export function RecentOrdersTable({
                 }
               }}
               tabIndex={0}
-              className="cursor-pointer hover:bg-[var(--surface-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-navy)]"
+              className={cn(
+                'cursor-pointer hover:bg-[var(--surface-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-navy)]',
+                highlightedOrderId === order.id && 'order-row-flash',
+              )}
             >
               <TableCell className="text-base font-semibold text-primary">#{order.order_number}</TableCell>
               <TableCell className="text-base font-medium text-primary">

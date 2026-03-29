@@ -9,7 +9,7 @@ export default async function OrderNotFound() {
       <div className="text-5xl">📦</div>
       <div className="space-y-2">
         <h1 className="text-xl font-semibold text-primary">Order not found</h1>
-        <p className="text-sm text-secondary">This order doesn't exist or may have been deleted.</p>
+        <p className="text-sm text-secondary">This order doesn&apos;t exist or may have been deleted.</p>
       </div>
       <Link
         href={`/${locale}/orders`}
