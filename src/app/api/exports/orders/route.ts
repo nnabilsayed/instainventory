@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 type ExportOrderItem = {
   product_name: string | null;
@@ -107,6 +107,7 @@ function parseToDate(value: string): string | null {
 
 export async function GET(request: Request) {
   const supabase = createClient();
+  const supabaseAdmin = getSupabaseAdmin();
   const {
     data: { user },
   } = await supabase.auth.getUser();

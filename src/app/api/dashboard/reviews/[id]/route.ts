@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 async function getAuthorizedReview(reviewId: string) {
   const supabase = createClient();
+  const supabaseAdmin = getSupabaseAdmin();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -37,6 +38,7 @@ async function getAuthorizedReview(reviewId: string) {
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const authorization = await getAuthorizedReview(params.id);
 
     if (authorization.error) {
@@ -67,6 +69,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const authorization = await getAuthorizedReview(params.id);
 
     if (authorization.error) {

@@ -21,7 +21,7 @@
 */
 
 import { resend } from '@/lib/resend';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -231,6 +231,7 @@ function renderItemsSection(items: OrderItem[]) {
 }
 
 async function getSellerEmail(ownerId: string) {
+  const supabaseAdmin = getSupabaseAdmin();
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(ownerId);
 
   if (error) {
@@ -247,6 +248,7 @@ async function getSellerEmail(ownerId: string) {
 }
 
 async function getOrderNotificationContext(orderId: string) {
+  const supabaseAdmin = getSupabaseAdmin();
   const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
     .select('id, order_number, total, payment_method, address_name, address_phone, address_city, shop_id')
@@ -402,6 +404,7 @@ async function handlePaymentProofUploaded(payload: WebhookPayload) {
 }
 
 async function handleLowStock(payload: WebhookPayload) {
+  const supabaseAdmin = getSupabaseAdmin();
   const record = getWebhookRecord(payload);
   const previousRecord = getOldWebhookRecord(payload);
   const variantId = getString(record?.id);

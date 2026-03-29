@@ -1,6 +1,6 @@
 import { ReviewFormClient } from './review-form-client';
 import { storageImage } from '@/lib/image';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getThemeVariables } from '@/lib/theme-tokens';
 import Link from 'next/link';
 
@@ -63,6 +63,7 @@ export default async function StoreReviewPage({
 }: {
   params: { slug: string; orderId: string };
 }) {
+  const supabaseAdmin = getSupabaseAdmin();
   const [{ data: order }, { data: existing }] = await Promise.all([
     supabaseAdmin
       .from('orders')
