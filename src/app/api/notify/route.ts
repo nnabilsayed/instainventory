@@ -481,6 +481,16 @@ async function handleLowStock(payload: WebhookPayload) {
 }
 
 export async function POST(request: Request) {
+  console.log('notify route hit')
+  console.log('headers:', {
+    secret: request.headers.get('x-webhook-secret'),
+    event: request.headers.get('x-event-type'),
+    hasWebhookSecret: !!process.env.WEBHOOK_SECRET,
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  })
+
   const webhookSecret = request.headers.get('x-webhook-secret');
 
   if (!process.env.WEBHOOK_SECRET || webhookSecret !== process.env.WEBHOOK_SECRET) {
