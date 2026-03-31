@@ -3,6 +3,7 @@ import DiscountEditor from './discount-editor';
 import OrderActions from './order-actions';
 import OrderExpiryBanner from './order-expiry-banner';
 import ReceiptModal from './receipt-modal';
+import { getAppUrl } from '@/lib/app-url';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { createClient } from '@/lib/supabase/server';
 import { getExpiryRelativeLabel, isOpenCheckoutStatus, isOrderExpired } from '@/lib/order-expiry';
@@ -108,18 +109,7 @@ export default async function OrderDetailPage({
     }
   }
 
-  const rawBase =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000')
-
-  const baseUrl = rawBase.startsWith('http') 
-    ? rawBase.replace(/\/$/, '')
-    : `https://${rawBase.replace(/\/$/, '')}`
-
-  const checkoutUrl =
-    `${baseUrl}/store/${shop.slug}/checkout/${order.checkout_token}`
+  const checkoutUrl = `${getAppUrl()}/store/${shop.slug}/checkout/${order.checkout_token}`;
   const expiryLabel = getExpiryRelativeLabel(order.expires_at);
   const paymentMethodLabel = getPaymentMethodLabel(order.payment_method);
   const messageParams = {
