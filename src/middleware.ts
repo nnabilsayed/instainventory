@@ -1,5 +1,5 @@
 import createMiddleware from 'next-intl/middleware';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 // 1. Create the next-intl middleware
@@ -10,13 +10,25 @@ const handleI18nRouting = createMiddleware({
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', pathname);
 
   // Skip locale middleware for public store routes
   if (pathname.startsWith('/store/')) {
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
-  const response = handleI18nRouting(request);
+  const response = handleI18nRouting(
+    new NextRequest(request.url, {
+      headers: requestHeaders,
+      method: request.method,
+      body: request.body,
+    })
+  );
   const segments = pathname.split('/').filter(Boolean);
   const locale = segments[0] === 'ar' || segments[0] === 'en' ? segments[0] : 'ar';
   const pathWithoutLocale = `/${segments.slice(1).join('/')}`;

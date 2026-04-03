@@ -1,14 +1,12 @@
-'use client';
-
 import { PWAInstallBanner } from '@/components/pwa-install-banner';
+import MobileNav from '@/components/dashboard/mobile-nav';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { useLocale, useTranslations } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Toaster } from 'sonner';
+import { getTranslations } from 'next-intl/server';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import {
   ChevronRight,
   LayoutDashboard,
@@ -19,6 +17,7 @@ import {
   Star,
   Users,
 } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, labelKey: 'dashboard' },
@@ -29,39 +28,32 @@ const navItems = [
   { href: '/settings', icon: Settings, labelKey: 'settings' },
 ] as const;
 
-export default function DashboardLayout({
-  children,
-}: {
+type DashboardLayoutProps = {
   children: React.ReactNode;
-}) {
-  const t = useTranslations('nav');
-  const locale = useLocale();
-  const pathname = usePathname();
-  const router = useRouter();
+  params: {
+    locale: string;
+  };
+};
+
+export default async function DashboardLayout({
+  children,
+  params,
+}: DashboardLayoutProps) {
+  const { locale } = params;
+  const t = await getTranslations('nav');
+  const pathname = headers().get('x-pathname') ?? `/${locale}`;
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const [userEmail, setUserEmail] = useState('');
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  async function handleSignOut() {
+    'use server';
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (isMounted) {
-        setUserEmail(user?.email ?? '');
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const serverSupabase = createClient();
+    await serverSupabase.auth.signOut();
+    redirect(`/${locale}/login`);
+  }
 
   const isActive = (href: string) => {
     const fullPath = `/${locale}${href}`;
@@ -72,6 +64,7 @@ export default function DashboardLayout({
     return pathname.startsWith(fullPath);
   };
 
+  const userEmail = user?.email ?? '';
   const avatarLabel = userEmail ? userEmail.charAt(0).toUpperCase() : 'I';
   const userName = userEmail ? userEmail.split('@')[0] : 'InstaInventory Seller';
   const breadcrumbItems = pathname
@@ -83,13 +76,6 @@ export default function DashboardLayout({
       const navItem = navItems.find((item) => item.href.replace('/', '') === segment);
       return navItem ? t(navItem.labelKey) : segment.replace(/[-_]/g, ' ');
     });
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    await supabase.auth.signOut();
-    router.replace(`/${locale}/login`);
-    router.refresh();
-  };
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-primary">
@@ -112,7 +98,7 @@ export default function DashboardLayout({
                 key={href}
                 href={`/${locale}${href}`}
                 className={[
-                  'flex min-h-[44px] items-center gap-3 rounded-[var(--radius-md)] ps-3 pe-3 text-sm transition-colors active:bg-[var(--surface-hover)] cursor-pointer',
+                  'flex min-h-[44px] cursor-pointer items-center gap-3 rounded-[var(--radius-md)] ps-3 pe-3 text-sm transition-colors active:bg-[var(--surface-hover)]',
                   isActive(href)
                     ? 'bg-[#EEEDF0] font-medium text-[var(--accent-navy)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]',
@@ -131,7 +117,9 @@ export default function DashboardLayout({
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-[var(--text-primary)]">{userName}</p>
-                <p className="truncate text-xs text-[var(--text-secondary)]">{userEmail || 'seller@instainventory.app'}</p>
+                <p className="truncate text-xs text-[var(--text-secondary)]">
+                  {userEmail || 'seller@instainventory.app'}
+                </p>
               </div>
             </div>
 
@@ -140,15 +128,16 @@ export default function DashboardLayout({
             </div>
 
             <div className="mt-3 ps-3 pe-3">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-[var(--text-secondary)]"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-              >
-                <LogOut size={16} />
-                <span>{isSigningOut ? 'Signing out...' : 'Sign out'}</span>
-              </Button>
+              <form action={handleSignOut}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  className="w-full justify-start text-[var(--text-secondary)]"
+                >
+                  <LogOut size={16} />
+                  <span>Sign out</span>
+                </Button>
+              </form>
             </div>
           </div>
         </div>
@@ -187,11 +176,13 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <main className="h-screen overflow-y-auto pt-[var(--topbar-height)] pb-[var(--safe-bottom)] md:ms-[var(--sidebar-width)] md:pb-0">
+      <main className="h-screen overflow-y-auto pt-[var(--topbar-height)] pb-[calc(60px+var(--safe-bottom))] md:ms-[var(--sidebar-width)] md:pb-0">
         <div className="px-4 py-5 md:px-6 md:py-6">
           {children}
         </div>
       </main>
+
+      <MobileNav locale={locale} />
 
       <Toaster
         position="bottom-center"
